@@ -1,0 +1,157 @@
+// ContentView.swift
+import SwiftUI
+
+struct ContentView: View {
+    @State private var selectedTab = 0
+    @State private var tabOffset: CGFloat = 0
+    
+    var body: some View {
+        ZStack {
+            // 背景
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
+            
+            // 主内容
+            TabView(selection: $selectedTab) {
+                AddExpenseView()
+                    .tag(0)
+                
+                MonthlyRecordsView()
+                    .tag(1)
+                
+                StatisticsView()
+                    .tag(2)
+                
+                SettingsView()
+                    .tag(3)
+            }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+            
+            // 自定义底部Tab Bar
+            VStack {
+                Spacer()
+                CustomTabBar(selectedTab: $selectedTab)
+                    .offset(y: tabOffset)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: tabOffset)
+            }
+        }
+        .onAppear {
+            // 隐藏系统TabBar
+            UITabBar.appearance().isHidden = true
+        }
+    }
+}
+
+struct CustomTabBar: View {
+    @Binding var selectedTab: Int
+    @State private var tabItemWidth: CGFloat = 0
+    
+    let tabItems = [
+        ("house.fill", "记账"),
+        ("list.bullet", "明细"),
+        ("chart.bar.fill", "统计"),
+        ("gearshape.fill", "设置")
+    ]
+    
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<tabItems.count, id: \.self) { index in
+                TabBarItem(
+                    icon: tabItems[index].0,
+                    title: tabItems[index].1,
+                    isSelected: selectedTab == index
+                ) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        selectedTab = index
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 25)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 25)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 20)
+        .padding(.bottom, 10)
+    }
+}
+
+struct TabBarItem: View {
+    let icon: String
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: isSelected ? 24 : 20, weight: .medium))
+                    .foregroundColor(isSelected ? .white : .gray)
+                    .scaleEffect(isSelected ? 1.1 : 1.0)
+                
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(isSelected ? .white : .gray)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Group {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    } else {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.clear)
+                    }
+                }
+                .scaleEffect(isSelected ? 1.0 : 0.8)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+    }
+}
+
+// Color Extension for Hex Colors
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+        
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
