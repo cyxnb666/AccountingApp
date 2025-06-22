@@ -5,6 +5,7 @@ struct MonthlyRecordsView: View {
     @State private var currentMonth = 6
     @State private var currentYear = 2025
     @State private var selectedDate = Date()
+    @State private var scrollOffset: CGFloat = 0
     
     let monthlyData = [
         DayRecord(date: "6月15日 星期六", total: 55, expenses: [
@@ -25,28 +26,60 @@ struct MonthlyRecordsView: View {
         ])
     ]
     
+    var monthlyTotal: Int {
+        monthlyData.reduce(0) { $0 + $1.total }
+    }
+    
+    var isHeaderCollapsed: Bool {
+        scrollOffset > 50
+    }
+    
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            MonthlyHeaderView()
-            
-            // Month Selector
-            MonthSelectorView(
-                currentMonth: $currentMonth,
-                currentYear: $currentYear
-            )
-            
-            // Records List
+        GeometryReader { geometry in
             ScrollView {
-                LazyVStack(spacing: 16) {
-                    ForEach(Array(monthlyData.enumerated()), id: \.offset) { index, dayRecord in
-                        DayRecordView(dayRecord: dayRecord)
-                            .animation(.easeInOut.delay(Double(index) * 0.1), value: monthlyData.count)
+                VStack(spacing: 0) {
+                    // Dynamic Header
+                    DynamicMonthlyHeaderView(
+                        currentMonth: currentMonth,
+                        currentYear: currentYear,
+                        monthlyTotal: monthlyTotal,
+                        isCollapsed: isHeaderCollapsed
+                    )
+                    
+                    // Month Selector (now sticky)
+                    MonthSelectorView(
+                        currentMonth: $currentMonth,
+                        currentYear: $currentYear
+                    )
+                    .background(
+                        .ultraThinMaterial,
+                        in: Rectangle()
+                    )
+                    .zIndex(1)
+                    
+                    // Records List
+                    LazyVStack(spacing: 16) {
+                        ForEach(Array(monthlyData.enumerated()), id: \.offset) { index, dayRecord in
+                            DayRecordView(dayRecord: dayRecord)
+                                .animation(.easeInOut.delay(Double(index) * 0.1), value: monthlyData.count)
+                        }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 100) // Space for tab bar
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 100) // Space for tab bar
+                .background(
+                    GeometryReader { scrollGeometry in
+                        Color.clear
+                            .preference(key: ScrollOffsetPreferenceKey.self, value: scrollGeometry.frame(in: .named("scroll")).minY)
+                    }
+                )
+            }
+            .coordinateSpace(name: "scroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    scrollOffset = -value
+                }
             }
             .background(Color(.systemGroupedBackground))
         }
@@ -57,7 +90,10 @@ struct MonthlyHeaderView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
+                colors: [
+                    Color(red: 0.15, green: 0.5, blue: 0.6),
+                    Color(red: 0.1, green: 0.4, blue: 0.5)
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -65,11 +101,11 @@ struct MonthlyHeaderView: View {
             VStack(spacing: 8) {
                 Text("月度记录")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 
                 Text("查看每月支出明细")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(.secondary)
             }
             .padding(.top, 50)
             .padding(.bottom, 30)
@@ -95,7 +131,7 @@ struct MonthSelectorView: View {
             Button(action: previousMonth) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Color(hex: "667eea"))
+                    .foregroundColor(.primary)
                     .frame(width: 44, height: 44)
                     .background(
                         Circle()
@@ -116,7 +152,7 @@ struct MonthSelectorView: View {
             Button(action: nextMonth) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Color(hex: "667eea"))
+                    .foregroundColor(.primary)
                     .frame(width: 44, height: 44)
                     .background(
                         Circle()
@@ -179,7 +215,7 @@ struct DayRecordView: View {
                     VStack(alignment: .trailing, spacing: 4) {
                         Text("¥\(dayRecord.total)")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(Color(hex: "667eea"))
+                            .foregroundColor(.primary)
                         
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.system(size: 12, weight: .semibold))
@@ -197,7 +233,7 @@ struct DayRecordView: View {
                     ForEach(Array(dayRecord.expenses.enumerated()), id: \.offset) { index, expense in
                         HStack {
                             Circle()
-                                .fill(Color(hex: "667eea").opacity(0.2))
+                                .fill(.primary.opacity(0.2))
                                 .frame(width: 6, height: 6)
                             
                             Text(expense.description)
@@ -208,7 +244,7 @@ struct DayRecordView: View {
                             
                             Text("¥\(expense.amount)")
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color(hex: "667eea"))
+                                .foregroundColor(.primary)
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 8)
@@ -235,7 +271,7 @@ struct DayRecordView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(hex: "667eea").opacity(isExpanded ? 0.3 : 0.1), lineWidth: 1)
+                .stroke(.primary.opacity(isExpanded ? 0.3 : 0.1), lineWidth: 1)
         )
         .scaleEffect(isExpanded ? 1.02 : 1.0)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isExpanded)
@@ -252,4 +288,93 @@ struct DayRecord {
 struct ExpenseRecord {
     let description: String
     let amount: Int
+}
+
+// Dynamic Header with smooth animations
+struct DynamicMonthlyHeaderView: View {
+    let currentMonth: Int
+    let currentYear: Int
+    let monthlyTotal: Int
+    let isCollapsed: Bool
+    
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.15, green: 0.5, blue: 0.6),
+                    Color(red: 0.1, green: 0.4, blue: 0.5)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            VStack(spacing: isCollapsed ? 4 : 12) {
+                if !isCollapsed {
+                    Text("月度记录")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .transition(.opacity.combined(with: .scale))
+                    
+                    Text("查看每月支出明细")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+                        .transition(.opacity.combined(with: .offset(y: -10)))
+                    
+                    // Monthly stats
+                    HStack(spacing: 20) {
+                        VStack(spacing: 4) {
+                            Text("¥\(monthlyTotal)")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                            Text("本月支出")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        
+                        Rectangle()
+                            .fill(.white.opacity(0.3))
+                            .frame(width: 1, height: 40)
+                        
+                        VStack(spacing: 4) {
+                            Text("\(Int(Double(monthlyTotal) / 30))")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                            Text("日均支出")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
+                    .transition(.opacity.combined(with: .scale))
+                } else {
+                    Text("月度记录")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .transition(.opacity.combined(with: .scale))
+                }
+            }
+            .padding(.top, isCollapsed ? 20 : 50)
+            .padding(.bottom, isCollapsed ? 15 : 30)
+            .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isCollapsed)
+        }
+        .frame(height: isCollapsed ? 80 : 160)
+        .clipShape(
+            UnevenRoundedRectangle(
+                topLeadingRadius: 0,
+                bottomLeadingRadius: 30,
+                bottomTrailingRadius: 30,
+                topTrailingRadius: 0
+            )
+        )
+        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isCollapsed)
+    }
+}
+
+// Preference key for tracking scroll offset
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
 }

@@ -108,12 +108,10 @@ struct TabBarItem: View {
                 Group {
                     if isSelected {
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                            .fill(.thinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(.white.opacity(0.3), lineWidth: 1)
                             )
                     } else {
                         RoundedRectangle(cornerRadius: 16)

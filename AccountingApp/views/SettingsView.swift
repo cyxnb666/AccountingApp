@@ -32,9 +32,6 @@ struct SettingsView: View {
                     
                     // Data Management
                     DataManagementSection(showingExportAlert: $showingExportAlert)
-                    
-                    // About Section
-                    AboutSection()
                 }
                 .padding(.top, 20)
                 .padding(.bottom, 100) // Space for tab bar
@@ -61,18 +58,21 @@ struct SettingsHeaderView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
+                colors: [
+                    Color(red: 0.3, green: 0.6, blue: 0.5),
+                    Color(red: 0.2, green: 0.5, blue: 0.4)
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             
             VStack(spacing: 8) {
                 Text("设置")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 
                 Text("个性化您的记账体验")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundColor(.white.opacity(0.9))
             }
             .padding(.top, 50)
@@ -126,7 +126,7 @@ struct NotificationSettingsSection: View {
                 HStack(spacing: 12) {
                     Image(systemName: "bell.fill")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(width: 28, height: 28)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
@@ -141,7 +141,7 @@ struct NotificationSettingsSection: View {
                 Spacer()
                 
                 Toggle("", isOn: $isEnabled)
-                    .tint(Color(hex: "667eea"))
+                    .tint(.primary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -154,7 +154,7 @@ struct NotificationSettingsSection: View {
                     HStack(spacing: 12) {
                         Image(systemName: "clock.fill")
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                             .frame(width: 28, height: 28)
                             .background(
                                 RoundedRectangle(cornerRadius: 6)
@@ -170,7 +170,7 @@ struct NotificationSettingsSection: View {
                     
                     DatePicker("", selection: $reminderTime, displayedComponents: .hourAndMinute)
                         .labelsHidden()
-                        .accentColor(Color(hex: "667eea"))
+                        .accentColor(.primary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -185,7 +185,7 @@ struct CategoryManagementSection: View {
         SettingsSection(title: "分类管理") {
             SettingsRow(
                 icon: "folder.fill",
-                iconColor: Color(hex: "667eea"),
+                iconColor: .primary,
                 title: "支出分类",
                 value: "8个分类"
             ) { }
@@ -223,13 +223,6 @@ struct DataManagementSection: View {
             }
             
             SettingsRow(
-                icon: "icloud.fill",
-                iconColor: .cyan,
-                title: "备份与恢复",
-                value: "iCloud同步"
-            ) { }
-            
-            SettingsRow(
                 icon: "trash.fill",
                 iconColor: .red,
                 title: "清空数据",
@@ -239,32 +232,6 @@ struct DataManagementSection: View {
     }
 }
 
-struct AboutSection: View {
-    var body: some View {
-        SettingsSection(title: "关于应用") {
-            SettingsRow(
-                icon: "info.circle.fill",
-                iconColor: .gray,
-                title: "版本信息",
-                value: "v1.0.0"
-            ) { }
-            
-            SettingsRow(
-                icon: "star.fill",
-                iconColor: .yellow,
-                title: "评价应用",
-                value: ""
-            ) { }
-            
-            SettingsRow(
-                icon: "envelope.fill",
-                iconColor: .green,
-                title: "意见反馈",
-                value: ""
-            ) { }
-        }
-    }
-}
 
 struct SettingsSection<Content: View>: View {
     let title: String
@@ -304,7 +271,7 @@ struct SettingsRow: View {
                 HStack(spacing: 12) {
                     Image(systemName: icon)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(width: 28, height: 28)
                         .background(
                             RoundedRectangle(cornerRadius: 6)

@@ -56,14 +56,14 @@ struct Expense: Identifiable, Codable {
     
     var categoryIcon: String {
         switch category {
-        case "food": return "🍔"
-        case "transport": return "🚗"
-        case "entertainment": return "🎬"
-        case "shopping": return "🛍️"
-        case "medical": return "🏥"
-        case "gift": return "🎁"
-        case "bills": return "💡"
-        default: return "📦"
+        case "food": return "fork.knife"
+        case "transport": return "car"
+        case "entertainment": return "tv"
+        case "shopping": return "bag"
+        case "medical": return "cross"
+        case "gift": return "gift"
+        case "bills": return "lightbulb"
+        default: return "shippingbox"
         }
     }
     
@@ -168,14 +168,14 @@ struct AddExpenseViewWithDataManager: View {
     @State private var showingSuccessAlert = false
     
     let categories = [
-        ("food", "🍔", "餐饮"),
-        ("transport", "🚗", "交通"),
-        ("entertainment", "🎬", "娱乐"),
-        ("shopping", "🛍️", "购物"),
-        ("medical", "🏥", "医疗"),
-        ("gift", "🎁", "人情"),
-        ("bills", "💡", "缴费"),
-        ("other", "📦", "其他")
+        ("food", "fork.knife", "餐饮"),
+        ("transport", "car", "交通"),
+        ("entertainment", "tv", "娱乐"),
+        ("shopping", "bag", "购物"),
+        ("medical", "cross", "医疗"),
+        ("gift", "gift", "人情"),
+        ("bills", "lightbulb", "缴费"),
+        ("other", "shippingbox", "其他")
     ]
     
     var todayExpenses: [(String, String)] {

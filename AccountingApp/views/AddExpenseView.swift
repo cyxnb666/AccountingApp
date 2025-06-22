@@ -8,14 +8,14 @@ struct AddExpenseView: View {
     @State private var showingSuccessAlert = false
     
     let categories = [
-        ("food", "🍔", "餐饮"),
-        ("transport", "🚗", "交通"),
-        ("entertainment", "🎬", "娱乐"),
-        ("shopping", "🛍️", "购物"),
-        ("medical", "🏥", "医疗"),
-        ("gift", "🎁", "人情"),
-        ("bills", "💡", "缴费"),
-        ("other", "📦", "其他")
+        ("food", "fork.knife", "餐饮"),
+        ("transport", "car", "交通"),
+        ("entertainment", "tv", "娱乐"),
+        ("shopping", "bag", "购物"),
+        ("medical", "cross", "医疗"),
+        ("gift", "gift", "人情"),
+        ("bills", "lightbulb", "缴费"),
+        ("other", "shippingbox", "其他")
     ]
     
     let todayExpenses = [
@@ -49,11 +49,18 @@ struct AddExpenseView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
+        .onTapGesture {
+            hideKeyboard()
+        }
         .alert("记账成功", isPresented: $showingSuccessAlert) {
             Button("确定", role: .cancel) { }
         } message: {
             Text("已记录：¥\(amount) - \(description)")
         }
+    }
+    
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
     
     private func addExpense() {
@@ -71,18 +78,21 @@ struct HeaderView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
+                colors: [
+                    Color(red: 0.2, green: 0.4, blue: 0.8),
+                    Color(red: 0.1, green: 0.3, blue: 0.7)
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             
             VStack(spacing: 8) {
                 Text("记账助手")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 
                 Text("2025年6月15日 星期日")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundColor(.white.opacity(0.9))
             }
             .padding(.top, 50)
@@ -107,6 +117,10 @@ struct QuickAddSection: View {
     let categories: [(String, String, String)]
     let onAddExpense: () -> Void
     
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+    
     var body: some View {
         VStack(spacing: 20) {
             // Amount Input
@@ -114,17 +128,17 @@ struct QuickAddSection: View {
                 HStack {
                     Text("¥")
                         .font(.system(size: 48, weight: .ultraLight))
-                        .foregroundColor(Color(hex: "667eea"))
+                        .foregroundColor(.primary)
                     
                     TextField("0.00", text: $amount)
                         .font(.system(size: 48, weight: .ultraLight))
-                        .foregroundColor(Color(hex: "667eea"))
+                        .foregroundColor(.primary)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.leading)
                 }
                 
                 Rectangle()
-                    .fill(Color(hex: "667eea").opacity(0.3))
+                    .fill(.primary.opacity(0.3))
                     .frame(height: 2)
                     .animation(.easeInOut, value: amount.isEmpty)
             }
@@ -154,7 +168,10 @@ struct QuickAddSection: View {
             }
             
             // Add Button
-            Button(action: onAddExpense) {
+            Button(action: {
+                hideKeyboard()
+                onAddExpense()
+            }) {
                 HStack {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 20, weight: .semibold))
@@ -166,13 +183,16 @@ struct QuickAddSection: View {
                 .padding(.vertical, 16)
                 .background(
                     LinearGradient(
-                        colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
+                        colors: [
+                            Color(red: 0.2, green: 0.6, blue: 0.9),
+                            Color(red: 0.1, green: 0.5, blue: 0.8)
+                        ],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(color: Color(hex: "667eea").opacity(0.3), radius: 8, x: 0, y: 4)
+                .shadow(color: Color(red: 0.1, green: 0.5, blue: 0.8).opacity(0.3), radius: 8, x: 0, y: 4)
             }
             .scaleEffect(amount.isEmpty || description.isEmpty ? 0.95 : 1.0)
             .animation(.spring(), value: amount.isEmpty || description.isEmpty)
@@ -194,11 +214,19 @@ struct CategoryItem: View {
     let isSelected: Bool
     let action: () -> Void
     
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+    
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            hideKeyboard()
+            action()
+        }) {
             VStack(spacing: 8) {
-                Text(icon)
-                    .font(.system(size: 24))
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(isSelected ? .white : .primary)
                     .scaleEffect(isSelected ? 1.2 : 1.0)
                 
                 Text(title)
@@ -213,7 +241,10 @@ struct CategoryItem: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(
                                 LinearGradient(
-                                    colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
+                                    colors: [
+                                        Color(red: 0.2, green: 0.6, blue: 0.9),
+                                        Color(red: 0.1, green: 0.5, blue: 0.8)
+                                    ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -252,14 +283,14 @@ struct TodayRecordsSection: View {
                 
                 Text("¥\(totalAmount)")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Color(hex: "667eea"))
+                    .foregroundColor(.primary)
             }
             
             VStack(spacing: 12) {
                 ForEach(Array(expenses.enumerated()), id: \.offset) { index, expense in
                     HStack {
                         Circle()
-                            .fill(Color(hex: "667eea").opacity(0.2))
+                            .fill(.primary.opacity(0.2))
                             .frame(width: 8, height: 8)
                         
                         Text(expense.0)
@@ -270,7 +301,7 @@ struct TodayRecordsSection: View {
                         
                         Text("¥\(expense.1)")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(Color(hex: "667eea"))
+                            .foregroundColor(.primary)
                     }
                     .padding(.vertical, 12)
                     .padding(.horizontal, 16)

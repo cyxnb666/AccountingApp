@@ -13,11 +13,11 @@ struct StatisticsView: View {
     )
     
     let categoryStats = [
-        CategoryStat(name: "餐饮", icon: "🍔", amount: 1280, percentage: 45),
-        CategoryStat(name: "娱乐", icon: "🎬", amount: 712, percentage: 25),
-        CategoryStat(name: "交通", icon: "🚗", amount: 427, percentage: 15),
-        CategoryStat(name: "购物", icon: "🛍️", amount: 285, percentage: 10),
-        CategoryStat(name: "其他", icon: "📦", amount: 143, percentage: 5)
+        CategoryStat(name: "餐饮", icon: "fork.knife", amount: 1280, percentage: 45),
+        CategoryStat(name: "娱乐", icon: "tv", amount: 712, percentage: 25),
+        CategoryStat(name: "交通", icon: "car", amount: 427, percentage: 15),
+        CategoryStat(name: "购物", icon: "bag", amount: 285, percentage: 10),
+        CategoryStat(name: "其他", icon: "shippingbox", amount: 143, percentage: 5)
     ]
     
     var body: some View {
@@ -59,18 +59,21 @@ struct StatisticsHeaderView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
+                colors: [
+                    Color(red: 0.6, green: 0.3, blue: 0.7),
+                    Color(red: 0.5, green: 0.2, blue: 0.6)
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             
             VStack(spacing: 8) {
                 Text("支出统计")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 
                 Text("了解您的消费习惯")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundColor(.white.opacity(0.9))
             }
             .padding(.top, 50)
@@ -102,7 +105,7 @@ struct MonthlySummaryView: View {
                 StatCard(
                     title: "本月支出",
                     value: "¥\(Int(stats.totalExpense))",
-                    color: Color(hex: "667eea"),
+                    color: .primary,
                     animate: animate
                 )
                 .animation(.easeInOut.delay(0.1), value: animate)
@@ -110,7 +113,7 @@ struct MonthlySummaryView: View {
                 StatCard(
                     title: "日均支出",
                     value: String(format: "¥%.1f", stats.dailyAverage),
-                    color: Color(hex: "764ba2"),
+                    color: .secondary,
                     animate: animate
                 )
                 .animation(.easeInOut.delay(0.2), value: animate)
@@ -213,12 +216,13 @@ struct CategoryStatRow: View {
             HStack {
                 // Icon and Name
                 HStack(spacing: 12) {
-                    Text(category.icon)
-                        .font(.system(size: 24))
+                    Image(systemName: category.icon)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.primary)
                         .frame(width: 40, height: 40)
                         .background(
                             Circle()
-                                .fill(Color(hex: "667eea").opacity(0.1))
+                                .fill(.primary.opacity(0.1))
                         )
                     
                     Text(category.name)
@@ -232,7 +236,7 @@ struct CategoryStatRow: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("¥\(category.amount)")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(Color(hex: "667eea"))
+                        .foregroundColor(.primary)
                     
                     Text("\(category.percentage)%")
                         .font(.system(size: 12, weight: .medium))
@@ -249,11 +253,7 @@ struct CategoryStatRow: View {
                     
                     RoundedRectangle(cornerRadius: 4)
                         .fill(
-                            LinearGradient(
-                                colors: [Color(hex: "667eea"), Color(hex: "764ba2")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
+                            .thinMaterial
                         )
                         .frame(
                             width: animate ?
@@ -270,28 +270,63 @@ struct CategoryStatRow: View {
 }
 
 struct TrendChartView: View {
+    @State private var animatePie = false
+    
+    let pieData = [
+        PieSliceData(category: "餐饮", value: 1280, color: Color.blue),
+        PieSliceData(category: "娱乐", value: 712, color: Color.green),
+        PieSliceData(category: "交通", value: 427, color: Color.orange),
+        PieSliceData(category: "购物", value: 285, color: Color.purple),
+        PieSliceData(category: "其他", value: 143, color: Color.pink)
+    ]
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("支出趋势")
+            Text("支出分布")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.primary)
             
-            // Placeholder for chart
-            VStack {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 48))
-                    .foregroundColor(Color(hex: "667eea").opacity(0.6))
+            HStack(spacing: 20) {
+                // Pie Chart
+                ZStack {
+                    PieChart(data: pieData, animate: animatePie)
+                        .frame(width: 160, height: 160)
+                    
+                    VStack(spacing: 2) {
+                        Text("总支出")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                        Text("¥\(pieData.reduce(0) { $0 + $1.value })")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
+                }
                 
-                Text("图表功能开发中...")
-                    .font(.system(size: 16))
-                    .foregroundColor(.secondary)
+                // Legend
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(pieData, id: \.category) { slice in
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(slice.color)
+                                .frame(width: 12, height: 12)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(slice.category)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.primary)
+                                
+                                Text("¥\(slice.value)")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 200)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemGray6))
-            )
+            .frame(height: 180)
         }
         .padding(20)
         .background(
@@ -300,6 +335,11 @@ struct TrendChartView: View {
                 .shadow(color: .black.opacity(0.05), radius: 15, x: 0, y: 8)
         )
         .padding(.horizontal, 20)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).delay(0.3)) {
+                animatePie = true
+            }
+        }
     }
 }
 
@@ -316,4 +356,71 @@ struct CategoryStat {
     let icon: String
     let amount: Int
     let percentage: Int
+}
+
+// Pie Chart Data Structure
+struct PieSliceData {
+    let category: String
+    let value: Int
+    let color: Color
+}
+
+// Pie Chart Component
+struct PieChart: View {
+    let data: [PieSliceData]
+    let animate: Bool
+    
+    var body: some View {
+        ZStack {
+            ForEach(Array(data.enumerated()), id: \.offset) { index, slice in
+                PieSlice(
+                    startAngle: startAngle(for: index),
+                    endAngle: endAngle(for: index),
+                    color: slice.color,
+                    animate: animate
+                )
+            }
+        }
+    }
+    
+    private var totalValue: Int {
+        data.reduce(0) { $0 + $1.value }
+    }
+    
+    private func startAngle(for index: Int) -> Angle {
+        let sum = data.prefix(index).reduce(0) { $0 + $1.value }
+        return Angle(degrees: Double(sum) / Double(totalValue) * 360 - 90)
+    }
+    
+    private func endAngle(for index: Int) -> Angle {
+        let sum = data.prefix(index + 1).reduce(0) { $0 + $1.value }
+        return Angle(degrees: Double(sum) / Double(totalValue) * 360 - 90)
+    }
+}
+
+// Individual Pie Slice
+struct PieSlice: View {
+    let startAngle: Angle
+    let endAngle: Angle
+    let color: Color
+    let animate: Bool
+    
+    var body: some View {
+        Path { path in
+            let center = CGPoint(x: 80, y: 80)
+            let radius: CGFloat = 70
+            
+            path.move(to: center)
+            path.addArc(
+                center: center,
+                radius: radius,
+                startAngle: startAngle,
+                endAngle: animate ? endAngle : startAngle,
+                clockwise: false
+            )
+            path.closeSubpath()
+        }
+        .fill(color)
+        .animation(.easeInOut(duration: 1.0), value: animate)
+    }
 }
