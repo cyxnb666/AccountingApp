@@ -2,6 +2,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var selectedTab = 0
     @State private var tabOffset: CGFloat = 0
     
@@ -14,15 +15,19 @@ struct ContentView: View {
             // 主内容
             TabView(selection: $selectedTab) {
                 AddExpenseView()
+                    .environmentObject(dataManager)
                     .tag(0)
                 
                 MonthlyRecordsView()
+                    .environmentObject(dataManager)
                     .tag(1)
                 
                 StatisticsView()
+                    .environmentObject(dataManager)
                     .tag(2)
                 
                 SettingsView()
+                    .environmentObject(dataManager)
                     .tag(3)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))

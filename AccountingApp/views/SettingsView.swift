@@ -2,11 +2,13 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var monthlyBudget = 5000.0
     @State private var reminderTime = Date()
     @State private var isReminderEnabled = true
     @State private var showingBudgetAlert = false
     @State private var showingExportAlert = false
+    @State private var showingClearDataAlert = false
     
     var body: some View {
         ScrollView {
@@ -31,7 +33,13 @@ struct SettingsView: View {
                     CategoryManagementSection()
                     
                     // Data Management
-                    DataManagementSection(showingExportAlert: $showingExportAlert)
+                    DataManagementSection(
+                        showingExportAlert: $showingExportAlert,
+                        showingClearDataAlert: $showingClearDataAlert,
+                        onClearData: {
+                            dataManager.clearAllData()
+                        }
+                    )
                 }
                 .padding(.top, 20)
                 .padding(.bottom, 100) // Space for tab bar
@@ -50,6 +58,14 @@ struct SettingsView: View {
             Button("确定", role: .cancel) { }
         } message: {
             Text("数据已导出到相册")
+        }
+        .alert("清空数据", isPresented: $showingClearDataAlert) {
+            Button("确认清空", role: .destructive) {
+                dataManager.clearAllData()
+            }
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text("此操作将清空所有记账数据，且不可恢复")
         }
     }
 }
@@ -181,34 +197,31 @@ struct NotificationSettingsSection: View {
 }
 
 struct CategoryManagementSection: View {
+    @EnvironmentObject var dataManager: ExpenseDataManager
+    @State private var showingCategoryManagement = false
+    
     var body: some View {
         SettingsSection(title: "分类管理") {
             SettingsRow(
                 icon: "folder.fill",
                 iconColor: .primary,
                 title: "支出分类",
-                value: "8个分类"
-            ) { }
-            
-            SettingsRow(
-                icon: "plus.circle.fill",
-                iconColor: .green,
-                title: "添加分类",
-                value: ""
-            ) { }
-            
-            SettingsRow(
-                icon: "paintbrush.fill",
-                iconColor: .orange,
-                title: "自定义图标",
-                value: ""
-            ) { }
+                value: "\(dataManager.categories.count)个分类"
+            ) {
+                showingCategoryManagement = true
+            }
+        }
+        .sheet(isPresented: $showingCategoryManagement) {
+            CategoryManagementView()
+                .environmentObject(dataManager)
         }
     }
 }
 
 struct DataManagementSection: View {
     @Binding var showingExportAlert: Bool
+    @Binding var showingClearDataAlert: Bool
+    let onClearData: () -> Void
     
     var body: some View {
         SettingsSection(title: "数据管理") {
@@ -227,7 +240,9 @@ struct DataManagementSection: View {
                 iconColor: .red,
                 title: "清空数据",
                 value: "谨慎操作"
-            ) { }
+            ) {
+                showingClearDataAlert = true
+            }
         }
     }
 }

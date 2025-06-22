@@ -2,29 +2,54 @@
 import SwiftUI
 
 struct MonthlyRecordsView: View {
-    @State private var currentMonth = 6
-    @State private var currentYear = 2025
+    @EnvironmentObject var dataManager: ExpenseDataManager
+    @State private var currentMonth = Calendar.current.component(.month, from: Date())
+    @State private var currentYear = Calendar.current.component(.year, from: Date())
     @State private var selectedDate = Date()
     @State private var scrollOffset: CGFloat = 0
     
-    let monthlyData = [
-        DayRecord(date: "6月15日 星期六", total: 55, expenses: [
-            ExpenseRecord(description: "午饭", amount: 14),
-            ExpenseRecord(description: "地铁", amount: 6),
-            ExpenseRecord(description: "奶茶看电影", amount: 35)
-        ]),
-        DayRecord(date: "6月14日 星期五", total: 128, expenses: [
-            ExpenseRecord(description: "午饭", amount: 16),
-            ExpenseRecord(description: "加班吃的俩汉堡T.T", amount: 32),
-            ExpenseRecord(description: "理发", amount: 80)
-        ]),
-        DayRecord(date: "6月13日 星期四", total: 87, expenses: [
-            ExpenseRecord(description: "午饭", amount: 11),
-            ExpenseRecord(description: "晚饭外卖", amount: 35),
-            ExpenseRecord(description: "奶茶", amount: 18),
-            ExpenseRecord(description: "公交卡", amount: 23)
-        ])
-    ]
+    var monthlyData: [DayRecord] {
+        let calendar = Calendar.current
+        let startOfMonth = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
+        let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
+        
+        let monthlyExpenses = dataManager.expenses.filter { expense in
+            expense.date >= startOfMonth && expense.date <= endOfMonth
+        }
+        
+        let groupedByDay = Dictionary(grouping: monthlyExpenses) { expense in
+            calendar.startOfDay(for: expense.date)
+        }
+        
+        return groupedByDay.map { (date, expenses) in
+            let formatter = DateFormatter()
+            formatter.dateFormat = "M月d日 EEEE"
+            formatter.locale = Locale(identifier: "zh_CN")
+            
+            let dayExpenses = expenses.map { ExpenseRecord(description: $0.description, amount: Int($0.amount)) }
+            let total = expenses.reduce(0) { $0 + Int($1.amount) }
+            
+            return DayRecord(
+                date: formatter.string(from: date),
+                total: total,
+                expenses: dayExpenses
+            )
+        }.sorted { first, second in
+            let firstDate = groupedByDay.keys.first { key in
+                let formatter = DateFormatter()
+                formatter.dateFormat = "M月d日 EEEE"
+                formatter.locale = Locale(identifier: "zh_CN")
+                return formatter.string(from: key) == first.date
+            }
+            let secondDate = groupedByDay.keys.first { key in
+                let formatter = DateFormatter()
+                formatter.dateFormat = "M月d日 EEEE"
+                formatter.locale = Locale(identifier: "zh_CN")
+                return formatter.string(from: key) == second.date
+            }
+            return (firstDate ?? Date()) > (secondDate ?? Date())
+        }
+    }
     
     var monthlyTotal: Int {
         monthlyData.reduce(0) { $0 + $1.total }

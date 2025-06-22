@@ -3,10 +3,13 @@ import SwiftUI
 
 @main
 struct AccountingApp: App {
+    @StateObject private var dataManager = ExpenseDataManager()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .preferredColorScheme(.light) // 可以根据需要调整
+                .environmentObject(dataManager)
+                .preferredColorScheme(.light)
         }
     }
 }
@@ -14,12 +17,24 @@ struct AccountingApp: App {
 // 如果需要数据持久化，可以添加这个数据管理器
 class ExpenseDataManager: ObservableObject {
     @Published var expenses: [Expense] = []
+    @Published var categories: [ExpenseCategory] = [
+        ExpenseCategory(id: "food", name: "餐饮", icon: "fork.knife"),
+        ExpenseCategory(id: "transport", name: "交通", icon: "car"),
+        ExpenseCategory(id: "entertainment", name: "娱乐", icon: "tv"),
+        ExpenseCategory(id: "shopping", name: "购物", icon: "bag"),
+        ExpenseCategory(id: "medical", name: "医疗", icon: "cross"),
+        ExpenseCategory(id: "gift", name: "人情", icon: "gift"),
+        ExpenseCategory(id: "bills", name: "缴费", icon: "lightbulb"),
+        ExpenseCategory(id: "other", name: "其他", icon: "shippingbox")
+    ]
     
     private let userDefaults = UserDefaults.standard
     private let expensesKey = "SavedExpenses"
+    private let categoriesKey = "SavedCategories"
     
     init() {
         loadExpenses()
+        loadCategories()
     }
     
     func addExpense(_ expense: Expense) {
@@ -30,6 +45,28 @@ class ExpenseDataManager: ObservableObject {
     func deleteExpense(at index: Int) {
         expenses.remove(at: index)
         saveExpenses()
+    }
+    
+    func clearAllData() {
+        expenses.removeAll()
+        saveExpenses()
+    }
+    
+    func addCategory(_ category: ExpenseCategory) {
+        categories.append(category)
+        saveCategories()
+    }
+    
+    func deleteCategory(_ category: ExpenseCategory) {
+        categories.removeAll { $0.id == category.id }
+        saveCategories()
+    }
+    
+    func updateCategory(_ category: ExpenseCategory) {
+        if let index = categories.firstIndex(where: { $0.id == category.id }) {
+            categories[index] = category
+            saveCategories()
+        }
     }
     
     private func saveExpenses() {
@@ -44,11 +81,24 @@ class ExpenseDataManager: ObservableObject {
             expenses = decoded
         }
     }
+    
+    private func saveCategories() {
+        if let encoded = try? JSONEncoder().encode(categories) {
+            userDefaults.set(encoded, forKey: categoriesKey)
+        }
+    }
+    
+    private func loadCategories() {
+        if let data = userDefaults.data(forKey: categoriesKey),
+           let decoded = try? JSONDecoder().decode([ExpenseCategory].self, from: data) {
+            categories = decoded
+        }
+    }
 }
 
 // 支出数据模型
 struct Expense: Identifiable, Codable {
-    let id = UUID()
+    let id: UUID
     let amount: Double
     let description: String
     let category: String
@@ -79,6 +129,13 @@ struct Expense: Identifiable, Codable {
         default: return "其他"
         }
     }
+}
+
+// 支出分类数据模型
+struct ExpenseCategory: Identifiable, Codable {
+    let id: String
+    var name: String
+    var icon: String
 }
 
 // 扩展Date以便于格式化
@@ -225,6 +282,7 @@ struct AddExpenseViewWithDataManager: View {
         }
         
         let expense = Expense(
+            id: UUID(),
             amount: amountValue,
             description: description,
             category: selectedCategory,

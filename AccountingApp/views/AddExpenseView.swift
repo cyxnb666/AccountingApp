@@ -2,27 +2,24 @@
 import SwiftUI
 
 struct AddExpenseView: View {
+    @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var amount = ""
     @State private var description = ""
-    @State private var selectedCategory = "food"
+    @State private var selectedCategory = ""
     @State private var showingSuccessAlert = false
     
-    let categories = [
-        ("food", "fork.knife", "餐饮"),
-        ("transport", "car", "交通"),
-        ("entertainment", "tv", "娱乐"),
-        ("shopping", "bag", "购物"),
-        ("medical", "cross", "医疗"),
-        ("gift", "gift", "人情"),
-        ("bills", "lightbulb", "缴费"),
-        ("other", "shippingbox", "其他")
-    ]
+    var categories: [(String, String, String)] {
+        dataManager.categories.map { ($0.id, $0.icon, $0.name) }
+    }
     
-    let todayExpenses = [
-        ("午饭", "14"),
-        ("地铁", "6"),
-        ("奶茶看电影", "35")
-    ]
+    var todayExpenses: [(String, String)] {
+        let today = Calendar.current.startOfDay(for: Date())
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
+        
+        return dataManager.expenses
+            .filter { $0.date >= today && $0.date < tomorrow }
+            .map { ($0.description, String(format: "%.0f", $0.amount)) }
+    }
     
     var body: some View {
         ScrollView {
@@ -52,6 +49,11 @@ struct AddExpenseView: View {
         .onTapGesture {
             hideKeyboard()
         }
+        .onAppear {
+            if selectedCategory.isEmpty && !categories.isEmpty {
+                selectedCategory = categories.first?.0 ?? ""
+            }
+        }
         .alert("记账成功", isPresented: $showingSuccessAlert) {
             Button("确定", role: .cancel) { }
         } message: {
@@ -64,10 +66,21 @@ struct AddExpenseView: View {
     }
     
     private func addExpense() {
-        guard !amount.isEmpty && !description.isEmpty else {
+        guard let amountValue = Double(amount), !description.isEmpty else {
             return
         }
+        
+        let expense = Expense(
+            id: UUID(),
+            amount: amountValue,
+            description: description,
+            category: selectedCategory,
+            date: Date()
+        )
+        
+        dataManager.addExpense(expense)
         showingSuccessAlert = true
+        
         // Reset form
         amount = ""
         description = ""
@@ -286,30 +299,44 @@ struct TodayRecordsSection: View {
                     .foregroundColor(.primary)
             }
             
-            VStack(spacing: 12) {
-                ForEach(Array(expenses.enumerated()), id: \.offset) { index, expense in
-                    HStack {
-                        Circle()
-                            .fill(.primary.opacity(0.2))
-                            .frame(width: 8, height: 8)
-                        
-                        Text(expense.0)
-                            .font(.system(size: 16))
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        Text("¥\(expense.1)")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.primary)
+            if expenses.isEmpty {
+                VStack {
+                    Image(systemName: "tray")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray.opacity(0.6))
+                    
+                    Text("今日还没有支出记录")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(Array(expenses.enumerated()), id: \.offset) { index, expense in
+                        HStack {
+                            Circle()
+                                .fill(.primary.opacity(0.2))
+                                .frame(width: 8, height: 8)
+                            
+                            Text(expense.0)
+                                .font(.system(size: 16))
+                                .foregroundColor(.primary)
+                            
+                            Spacer()
+                            
+                            Text("¥\(expense.1)")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.primary)
+                        }
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.ultraThinMaterial)
+                        )
+                        .animation(.easeInOut.delay(Double(index) * 0.1), value: expenses.count)
                     }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .animation(.easeInOut.delay(Double(index) * 0.1), value: expenses.count)
                 }
             }
         }

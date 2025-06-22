@@ -2,23 +2,66 @@
 import SwiftUI
 
 struct StatisticsView: View {
+    @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var animateCards = false
     @State private var animateChart = false
     
-    let monthlyStats = MonthlyStats(
-        totalExpense: 2847,
-        dailyAverage: 94.9,
-        recordCount: 68,
-        averagePerRecord: 41.9
-    )
+    var monthlyStats: MonthlyStats {
+        let currentMonth = Calendar.current.component(.month, from: Date())
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let calendar = Calendar.current
+        let startOfMonth = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
+        let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
+        
+        let monthlyExpenses = dataManager.expenses.filter { expense in
+            expense.date >= startOfMonth && expense.date <= endOfMonth
+        }
+        
+        let totalExpense = monthlyExpenses.reduce(0) { $0 + $1.amount }
+        let recordCount = monthlyExpenses.count
+        let daysInMonth = calendar.range(of: .day, in: .month, for: Date())?.count ?? 30
+        let dailyAverage = recordCount > 0 ? totalExpense / Double(daysInMonth) : 0
+        let averagePerRecord = recordCount > 0 ? totalExpense / Double(recordCount) : 0
+        
+        return MonthlyStats(
+            totalExpense: totalExpense,
+            dailyAverage: dailyAverage,
+            recordCount: recordCount,
+            averagePerRecord: averagePerRecord
+        )
+    }
     
-    let categoryStats = [
-        CategoryStat(name: "餐饮", icon: "fork.knife", amount: 1280, percentage: 45),
-        CategoryStat(name: "娱乐", icon: "tv", amount: 712, percentage: 25),
-        CategoryStat(name: "交通", icon: "car", amount: 427, percentage: 15),
-        CategoryStat(name: "购物", icon: "bag", amount: 285, percentage: 10),
-        CategoryStat(name: "其他", icon: "shippingbox", amount: 143, percentage: 5)
-    ]
+    var categoryStats: [CategoryStat] {
+        let currentMonth = Calendar.current.component(.month, from: Date())
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let calendar = Calendar.current
+        let startOfMonth = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
+        let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
+        
+        let monthlyExpenses = dataManager.expenses.filter { expense in
+            expense.date >= startOfMonth && expense.date <= endOfMonth
+        }
+        
+        let totalAmount = monthlyExpenses.reduce(0) { $0 + $1.amount }
+        
+        let categoryGroups = Dictionary(grouping: monthlyExpenses) { $0.category }
+        
+        let stats = categoryGroups.map { (category, expenses) in
+            let amount = expenses.reduce(0) { $0 + $1.amount }
+            let percentage = totalAmount > 0 ? Int((amount / totalAmount) * 100) : 0
+            let categoryName = expenses.first?.categoryName ?? "其他"
+            let categoryIcon = expenses.first?.categoryIcon ?? "shippingbox"
+            
+            return CategoryStat(
+                name: categoryName,
+                icon: categoryIcon,
+                amount: Int(amount),
+                percentage: percentage
+            )
+        }.sorted { $0.amount > $1.amount }
+        
+        return stats
+    }
     
     var body: some View {
         ScrollView {
@@ -105,7 +148,7 @@ struct MonthlySummaryView: View {
                 StatCard(
                     title: "本月支出",
                     value: "¥\(Int(stats.totalExpense))",
-                    color: .primary,
+                    color: Color.blue,
                     animate: animate
                 )
                 .animation(.easeInOut.delay(0.1), value: animate)
@@ -113,7 +156,7 @@ struct MonthlySummaryView: View {
                 StatCard(
                     title: "日均支出",
                     value: String(format: "¥%.1f", stats.dailyAverage),
-                    color: .secondary,
+                    color: Color.green,
                     animate: animate
                 )
                 .animation(.easeInOut.delay(0.2), value: animate)
@@ -129,7 +172,7 @@ struct MonthlySummaryView: View {
                 StatCard(
                     title: "平均每笔",
                     value: String(format: "¥%.1f", stats.averagePerRecord),
-                    color: Color.green,
+                    color: Color.purple,
                     animate: animate
                 )
                 .animation(.easeInOut.delay(0.4), value: animate)
@@ -187,13 +230,27 @@ struct CategoryStatisticsView: View {
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.primary)
             
-            VStack(spacing: 16) {
-                ForEach(Array(categories.enumerated()), id: \.offset) { index, category in
-                    CategoryStatRow(
-                        category: category,
-                        animate: animate
-                    )
-                    .animation(.easeInOut.delay(Double(index) * 0.1), value: animate)
+            if categories.isEmpty {
+                VStack {
+                    Image(systemName: "chart.pie")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray.opacity(0.6))
+                    
+                    Text("暂无支出数据")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 150)
+            } else {
+                VStack(spacing: 16) {
+                    ForEach(Array(categories.enumerated()), id: \.offset) { index, category in
+                        CategoryStatRow(
+                            category: category,
+                            animate: animate
+                        )
+                        .animation(.easeInOut.delay(Double(index) * 0.1), value: animate)
+                    }
                 }
             }
         }
@@ -218,11 +275,11 @@ struct CategoryStatRow: View {
                 HStack(spacing: 12) {
                     Image(systemName: category.icon)
                         .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.blue)
                         .frame(width: 40, height: 40)
                         .background(
                             Circle()
-                                .fill(.primary.opacity(0.1))
+                                .fill(.blue.opacity(0.1))
                         )
                     
                     Text(category.name)
@@ -236,7 +293,7 @@ struct CategoryStatRow: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("¥\(category.amount)")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.blue)
                     
                     Text("\(category.percentage)%")
                         .font(.system(size: 12, weight: .medium))
@@ -253,7 +310,11 @@ struct CategoryStatRow: View {
                     
                     RoundedRectangle(cornerRadius: 4)
                         .fill(
-                            .thinMaterial
+                            LinearGradient(
+                                colors: [.blue, .purple],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
                         )
                         .frame(
                             width: animate ?
@@ -270,15 +331,35 @@ struct CategoryStatRow: View {
 }
 
 struct TrendChartView: View {
+    @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var animatePie = false
     
-    let pieData = [
-        PieSliceData(category: "餐饮", value: 1280, color: Color.blue),
-        PieSliceData(category: "娱乐", value: 712, color: Color.green),
-        PieSliceData(category: "交通", value: 427, color: Color.orange),
-        PieSliceData(category: "购物", value: 285, color: Color.purple),
-        PieSliceData(category: "其他", value: 143, color: Color.pink)
-    ]
+    var pieData: [PieSliceData] {
+        let currentMonth = Calendar.current.component(.month, from: Date())
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let calendar = Calendar.current
+        let startOfMonth = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
+        let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
+        
+        let monthlyExpenses = dataManager.expenses.filter { expense in
+            expense.date >= startOfMonth && expense.date <= endOfMonth
+        }
+        
+        let categoryGroups = Dictionary(grouping: monthlyExpenses) { $0.category }
+        let colors: [Color] = [.blue, .green, .orange, .purple, .pink, .red, .yellow, .cyan]
+        
+        return categoryGroups.enumerated().map { index, item in
+            let (_, expenses) = item
+            let amount = expenses.reduce(0) { $0 + Int($1.amount) }
+            let categoryName = expenses.first?.categoryName ?? "其他"
+            
+            return PieSliceData(
+                category: categoryName,
+                value: amount,
+                color: colors[index % colors.count]
+            )
+        }.sorted { $0.value > $1.value }
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
@@ -286,47 +367,61 @@ struct TrendChartView: View {
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.primary)
             
-            HStack(spacing: 20) {
-                // Pie Chart
-                ZStack {
-                    PieChart(data: pieData, animate: animatePie)
-                        .frame(width: 160, height: 160)
+            if pieData.isEmpty {
+                VStack {
+                    Image(systemName: "chart.pie")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray.opacity(0.6))
                     
-                    VStack(spacing: 2) {
-                        Text("总支出")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                        Text("¥\(pieData.reduce(0) { $0 + $1.value })")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.primary)
-                    }
-                }
-                
-                // Legend
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(pieData, id: \.category) { slice in
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(slice.color)
-                                .frame(width: 12, height: 12)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(slice.category)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.primary)
-                                
-                                Text("¥\(slice.value)")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                        }
-                    }
+                    Text("暂无数据")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
+                .frame(height: 180)
+            } else {
+                HStack(spacing: 20) {
+                    // Pie Chart
+                    ZStack {
+                        PieChart(data: pieData, animate: animatePie)
+                            .frame(width: 160, height: 160)
+                        
+                        VStack(spacing: 2) {
+                            Text("总支出")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                            Text("¥\(pieData.reduce(0) { $0 + $1.value })")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.primary)
+                        }
+                    }
+                    
+                    // Legend
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(pieData.prefix(5), id: \.category) { slice in
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(slice.color)
+                                    .frame(width: 12, height: 12)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(slice.category)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    
+                                    Text("¥\(slice.value)")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .frame(height: 180)
             }
-            .frame(height: 180)
         }
         .padding(20)
         .background(
