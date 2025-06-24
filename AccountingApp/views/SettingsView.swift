@@ -1,5 +1,6 @@
 // SettingsView.swift
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
@@ -40,6 +41,7 @@ struct SettingsView: View {
                             dataManager.clearAllData()
                         }
                     )
+                    .environmentObject(dataManager)
                 }
                 .padding(.top, 20)
                 .padding(.bottom, 100) // Space for tab bar
@@ -219,12 +221,26 @@ struct CategoryManagementSection: View {
 }
 
 struct DataManagementSection: View {
+    @EnvironmentObject var dataManager: ExpenseDataManager
     @Binding var showingExportAlert: Bool
     @Binding var showingClearDataAlert: Bool
+    @State private var showingImportAlert = false
+    @State private var showingDocumentPicker = false
+    @State private var importedCount = 0
     let onClearData: () -> Void
     
     var body: some View {
         SettingsSection(title: "数据管理") {
+            SettingsRow(
+                icon: "square.and.arrow.down.fill",
+                iconColor: .green,
+                title: "导入历史数据",
+                value: "选择txt文件",
+                showChevron: false
+            ) {
+                showingDocumentPicker = true
+            }
+            
             SettingsRow(
                 icon: "square.and.arrow.up.fill",
                 iconColor: .blue,
@@ -243,6 +259,20 @@ struct DataManagementSection: View {
             ) {
                 showingClearDataAlert = true
             }
+        }
+        .sheet(isPresented: $showingDocumentPicker) {
+            DocumentPicker { url in
+                let beforeCount = dataManager.expenses.count
+                dataManager.importHistoricalData(from: url)
+                let afterCount = dataManager.expenses.count
+                importedCount = afterCount - beforeCount
+                showingImportAlert = true
+            }
+        }
+        .alert("导入成功", isPresented: $showingImportAlert) {
+            Button("确定", role: .cancel) { }
+        } message: {
+            Text("成功导入 \(importedCount) 条记录")
         }
     }
 }
@@ -317,5 +347,35 @@ struct SettingsRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct DocumentPicker: UIViewControllerRepresentable {
+    let onDocumentPicked: (URL) -> Void
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.plainText], asCopy: true)
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: DocumentPicker
+        
+        init(_ parent: DocumentPicker) {
+            self.parent = parent
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            parent.onDocumentPicked(url)
+        }
     }
 }

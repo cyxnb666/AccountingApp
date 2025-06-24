@@ -94,6 +94,63 @@ class ExpenseDataManager: ObservableObject {
             categories = decoded
         }
     }
+    
+    func importHistoricalData(from url: URL) {
+        do {
+            let content = try String(contentsOf: url, encoding: .utf8)
+            let historicalExpenses = parseHistoricalData(from: content)
+            expenses.append(contentsOf: historicalExpenses)
+            saveExpenses()
+        } catch {
+            print("导入文件失败: \(error)")
+        }
+    }
+    
+    private func parseHistoricalData(from content: String) -> [Expense] {
+        var results: [Expense] = []
+        let calendar = Calendar.current
+        
+        let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        
+        for line in lines {
+            let parts = line.components(separatedBy: ",")
+            guard parts.count == 6,
+                  let year = Int(parts[0].trimmingCharacters(in: .whitespacesAndNewlines)),
+                  let month = Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)),
+                  let day = Int(parts[2].trimmingCharacters(in: .whitespacesAndNewlines)),
+                  let amount = Double(parts[3].trimmingCharacters(in: .whitespacesAndNewlines)) else { continue }
+            
+            let description = parts[4].trimmingCharacters(in: .whitespacesAndNewlines)
+            let categoryName = parts[5].trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            let components = DateComponents(year: year, month: month, day: day)
+            let date = calendar.date(from: components) ?? Date()
+            
+            let expense = Expense(
+                id: UUID(),
+                amount: amount,
+                description: description,
+                category: categoryIdFromName(categoryName),
+                date: date
+            )
+            results.append(expense)
+        }
+        
+        return results
+    }
+    
+    private func categoryIdFromName(_ name: String) -> String {
+        switch name {
+        case "餐饮": return "food"
+        case "交通": return "transport"
+        case "娱乐": return "entertainment"
+        case "购物": return "shopping"
+        case "医疗": return "medical"
+        case "人情": return "gift"
+        case "缴费": return "bills"
+        default: return "other"
+        }
+    }
 }
 
 // 支出数据模型

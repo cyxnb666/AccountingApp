@@ -5,12 +5,12 @@ struct StatisticsView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var animateCards = false
     @State private var animateChart = false
+    @State private var selectedMonth = Calendar.current.component(.month, from: Date())
+    @State private var selectedYear = Calendar.current.component(.year, from: Date())
     
-    var monthlyStats: MonthlyStats {
-        let currentMonth = Calendar.current.component(.month, from: Date())
-        let currentYear = Calendar.current.component(.year, from: Date())
+    private var monthlyStats: MonthlyStats {
         let calendar = Calendar.current
-        let startOfMonth = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
+        let startOfMonth = calendar.date(from: DateComponents(year: selectedYear, month: selectedMonth, day: 1))!
         let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
         
         let monthlyExpenses = dataManager.expenses.filter { expense in
@@ -19,7 +19,7 @@ struct StatisticsView: View {
         
         let totalExpense = monthlyExpenses.reduce(0) { $0 + $1.amount }
         let recordCount = monthlyExpenses.count
-        let daysInMonth = calendar.range(of: .day, in: .month, for: Date())?.count ?? 30
+        let daysInMonth = calendar.range(of: .day, in: .month, for: startOfMonth)?.count ?? 30
         let dailyAverage = recordCount > 0 ? totalExpense / Double(daysInMonth) : 0
         let averagePerRecord = recordCount > 0 ? totalExpense / Double(recordCount) : 0
         
@@ -31,11 +31,9 @@ struct StatisticsView: View {
         )
     }
     
-    var categoryStats: [CategoryStat] {
-        let currentMonth = Calendar.current.component(.month, from: Date())
-        let currentYear = Calendar.current.component(.year, from: Date())
+    private var categoryStats: [CategoryStat] {
         let calendar = Calendar.current
-        let startOfMonth = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
+        let startOfMonth = calendar.date(from: DateComponents(year: selectedYear, month: selectedMonth, day: 1))!
         let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
         
         let monthlyExpenses = dataManager.expenses.filter { expense in
@@ -69,9 +67,20 @@ struct StatisticsView: View {
                 // Header
                 StatisticsHeaderView()
                 
+                // Month Selector
+                MonthSelectorView(
+                    currentMonth: $selectedMonth,
+                    currentYear: $selectedYear
+                )
+                
                 VStack(spacing: 20) {
                     // Monthly Summary
-                    MonthlySummaryView(stats: monthlyStats, animate: animateCards)
+                    MonthlySummaryView(
+                        stats: monthlyStats, 
+                        animate: animateCards,
+                        selectedMonth: selectedMonth,
+                        selectedYear: selectedYear
+                    )
                     
                     // Category Statistics
                     CategoryStatisticsView(
@@ -79,8 +88,11 @@ struct StatisticsView: View {
                         animate: animateChart
                     )
                     
-                    // Trend Chart (Placeholder)
-                    TrendChartView()
+                    // Trend Chart
+                    TrendChartView(
+                        selectedMonth: selectedMonth,
+                        selectedYear: selectedYear
+                    )
                 }
                 .padding(.top, 20)
                 .padding(.bottom, 100) // Space for tab bar
@@ -92,6 +104,28 @@ struct StatisticsView: View {
                 animateCards = true
             }
             withAnimation(.easeInOut(duration: 1.0).delay(0.5)) {
+                animateChart = true
+            }
+        }
+        .onChange(of: selectedMonth) { _ in
+            // 重新触发动画
+            animateCards = false
+            animateChart = false
+            withAnimation(.easeInOut(duration: 0.6).delay(0.1)) {
+                animateCards = true
+            }
+            withAnimation(.easeInOut(duration: 0.8).delay(0.3)) {
+                animateChart = true
+            }
+        }
+        .onChange(of: selectedYear) { _ in
+            // 重新触发动画
+            animateCards = false
+            animateChart = false
+            withAnimation(.easeInOut(duration: 0.6).delay(0.1)) {
+                animateCards = true
+            }
+            withAnimation(.easeInOut(duration: 0.8).delay(0.3)) {
                 animateChart = true
             }
         }
@@ -137,16 +171,18 @@ struct StatisticsHeaderView: View {
 struct MonthlySummaryView: View {
     let stats: MonthlyStats
     let animate: Bool
+    let selectedMonth: Int
+    let selectedYear: Int
     
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("本月概览")
+            Text("\(selectedYear)年\(selectedMonth)月概览")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.primary)
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 15) {
                 StatCard(
-                    title: "本月支出",
+                    title: "月度支出",
                     value: "¥\(Int(stats.totalExpense))",
                     color: Color.blue,
                     animate: animate
@@ -333,12 +369,12 @@ struct CategoryStatRow: View {
 struct TrendChartView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var animatePie = false
+    let selectedMonth: Int
+    let selectedYear: Int
     
     var pieData: [PieSliceData] {
-        let currentMonth = Calendar.current.component(.month, from: Date())
-        let currentYear = Calendar.current.component(.year, from: Date())
         let calendar = Calendar.current
-        let startOfMonth = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
+        let startOfMonth = calendar.date(from: DateComponents(year: selectedYear, month: selectedMonth, day: 1))!
         let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
         
         let monthlyExpenses = dataManager.expenses.filter { expense in
@@ -432,6 +468,18 @@ struct TrendChartView: View {
         .padding(.horizontal, 20)
         .onAppear {
             withAnimation(.easeInOut(duration: 1.5).delay(0.3)) {
+                animatePie = true
+            }
+        }
+        .onChange(of: selectedMonth) { _ in
+            animatePie = false
+            withAnimation(.easeInOut(duration: 1.0).delay(0.2)) {
+                animatePie = true
+            }
+        }
+        .onChange(of: selectedYear) { _ in
+            animatePie = false
+            withAnimation(.easeInOut(duration: 1.0).delay(0.2)) {
                 animatePie = true
             }
         }

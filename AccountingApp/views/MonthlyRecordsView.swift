@@ -7,8 +7,26 @@ struct MonthlyRecordsView: View {
     @State private var currentYear = Calendar.current.component(.year, from: Date())
     @State private var selectedDate = Date()
     @State private var scrollOffset: CGFloat = 0
+    @State private var cachedMonthlyData: [DayRecord] = []
+    @State private var lastCachedMonth: Int = 0
+    @State private var lastCachedYear: Int = 0
+    @State private var lastExpenseCount: Int = 0
     
-    var monthlyData: [DayRecord] {
+    private var monthlyData: [DayRecord] {
+        // 缓存机制：只有当月份、年份或数据变化时才重新计算
+        if currentMonth != lastCachedMonth || 
+           currentYear != lastCachedYear || 
+           dataManager.expenses.count != lastExpenseCount {
+            
+            cachedMonthlyData = calculateMonthlyData()
+            lastCachedMonth = currentMonth
+            lastCachedYear = currentYear
+            lastExpenseCount = dataManager.expenses.count
+        }
+        return cachedMonthlyData
+    }
+    
+    private func calculateMonthlyData() -> [DayRecord] {
         let calendar = Calendar.current
         let startOfMonth = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
         let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
@@ -21,34 +39,21 @@ struct MonthlyRecordsView: View {
             calendar.startOfDay(for: expense.date)
         }
         
-        return groupedByDay.map { (date, expenses) in
-            let formatter = DateFormatter()
-            formatter.dateFormat = "M月d日 EEEE"
-            formatter.locale = Locale(identifier: "zh_CN")
-            
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M月d日 EEEE"
+        formatter.locale = Locale(identifier: "zh_CN")
+        
+        return groupedByDay.compactMap { (date, expenses) in
             let dayExpenses = expenses.map { ExpenseRecord(description: $0.description, amount: Int($0.amount)) }
             let total = expenses.reduce(0) { $0 + Int($1.amount) }
             
             return DayRecord(
                 date: formatter.string(from: date),
+                actualDate: date,
                 total: total,
                 expenses: dayExpenses
             )
-        }.sorted { first, second in
-            let firstDate = groupedByDay.keys.first { key in
-                let formatter = DateFormatter()
-                formatter.dateFormat = "M月d日 EEEE"
-                formatter.locale = Locale(identifier: "zh_CN")
-                return formatter.string(from: key) == first.date
-            }
-            let secondDate = groupedByDay.keys.first { key in
-                let formatter = DateFormatter()
-                formatter.dateFormat = "M月d日 EEEE"
-                formatter.locale = Locale(identifier: "zh_CN")
-                return formatter.string(from: key) == second.date
-            }
-            return (firstDate ?? Date()) > (secondDate ?? Date())
-        }
+        }.sorted { $0.actualDate > $1.actualDate }
     }
     
     var monthlyTotal: Int {
@@ -306,6 +311,7 @@ struct DayRecordView: View {
 // Data Models
 struct DayRecord {
     let date: String
+    let actualDate: Date
     let total: Int
     let expenses: [ExpenseRecord]
 }
