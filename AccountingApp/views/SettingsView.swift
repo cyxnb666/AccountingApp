@@ -5,8 +5,6 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var monthlyBudget = 5000.0
-    @State private var reminderTime = Date()
-    @State private var isReminderEnabled = true
     @State private var showingBudgetAlert = false
     @State private var showingExportAlert = false
     @State private var showingClearDataAlert = false
@@ -22,12 +20,6 @@ struct SettingsView: View {
                     BudgetSettingsSection(
                         monthlyBudget: $monthlyBudget,
                         showingAlert: $showingBudgetAlert
-                    )
-                    
-                    // Notification Settings
-                    NotificationSettingsSection(
-                        isEnabled: $isReminderEnabled,
-                        reminderTime: $reminderTime
                     )
                     
                     // Category Management
@@ -134,69 +126,6 @@ struct BudgetSettingsSection: View {
     }
 }
 
-struct NotificationSettingsSection: View {
-    @Binding var isEnabled: Bool
-    @Binding var reminderTime: Date
-    
-    var body: some View {
-        SettingsSection(title: "提醒设置") {
-            HStack {
-                HStack(spacing: 12) {
-                    Image(systemName: "bell.fill")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.primary)
-                        .frame(width: 28, height: 28)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.blue)
-                        )
-                    
-                    Text("记账提醒")
-                        .font(.system(size: 16))
-                        .foregroundColor(.primary)
-                }
-                
-                Spacer()
-                
-                Toggle("", isOn: $isEnabled)
-                    .tint(.primary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            
-            if isEnabled {
-                Divider()
-                    .padding(.horizontal, 16)
-                
-                HStack {
-                    HStack(spacing: 12) {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.primary)
-                            .frame(width: 28, height: 28)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.purple)
-                            )
-                        
-                        Text("提醒时间")
-                            .font(.system(size: 16))
-                            .foregroundColor(.primary)
-                    }
-                    
-                    Spacer()
-                    
-                    DatePicker("", selection: $reminderTime, displayedComponents: .hourAndMinute)
-                        .labelsHidden()
-                        .accentColor(.primary)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .transition(.opacity.combined(with: .offset(y: -10)))
-            }
-        }
-    }
-}
 
 struct CategoryManagementSection: View {
     @EnvironmentObject var dataManager: ExpenseDataManager

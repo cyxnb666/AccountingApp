@@ -7,18 +7,19 @@ struct AddExpenseView: View {
     @State private var description = ""
     @State private var selectedCategory = ""
     @State private var showingSuccessAlert = false
+    @State private var isButtonPressed = false
+    @State private var showingSuccessAnimation = false
     
     var categories: [(String, String, String)] {
         dataManager.categories.map { ($0.id, $0.icon, $0.name) }
     }
     
-    var todayExpenses: [(String, String)] {
+    var todayExpenses: [Expense] {
         let today = Calendar.current.startOfDay(for: Date())
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
         
         return dataManager.expenses
             .filter { $0.date >= today && $0.date < tomorrow }
-            .map { ($0.description, String(format: "%.0f", $0.amount)) }
     }
     
     var body: some View {
@@ -33,13 +34,15 @@ struct AddExpenseView: View {
                     description: $description,
                     selectedCategory: $selectedCategory,
                     categories: categories,
+                    isButtonPressed: $isButtonPressed,
+                    showingSuccessAnimation: $showingSuccessAnimation,
                     onAddExpense: {
                         addExpense()
                     }
                 )
                 
                 // Today's Records
-                TodayRecordsSection(expenses: todayExpenses)
+                TodayRecordsSection(expenses: todayExpenses, dataManager: dataManager)
                 
                 // Bottom padding for tab bar
                 Spacer(minLength: 100)
@@ -54,10 +57,10 @@ struct AddExpenseView: View {
                 selectedCategory = categories.first?.0 ?? ""
             }
         }
-        .alert("记账成功", isPresented: $showingSuccessAlert) {
+        .alert("✅ 记账成功", isPresented: $showingSuccessAlert) {
             Button("确定", role: .cancel) { }
         } message: {
-            Text("已记录：¥\(amount) - \(description)")
+            Text("已成功记录一笔支出")
         }
     }
     
@@ -70,6 +73,10 @@ struct AddExpenseView: View {
             return
         }
         
+        // 添加触觉反馈
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
         let expense = Expense(
             id: UUID(),
             amount: amountValue,
@@ -79,11 +86,28 @@ struct AddExpenseView: View {
         )
         
         dataManager.addExpense(expense)
-        showingSuccessAlert = true
         
-        // Reset form
-        amount = ""
-        description = ""
+        // 先显示成功动画，然后显示弹窗
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+            showingSuccessAnimation = true
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            showingSuccessAlert = true
+            showingSuccessAnimation = false
+        }
+        
+        // Reset form with animation
+        withAnimation(.easeOut(duration: 0.3)) {
+            amount = ""
+            description = ""
+        }
+    }
+    
+    private func formatCurrentTime() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: Date())
     }
 }
 
@@ -128,6 +152,8 @@ struct QuickAddSection: View {
     @Binding var description: String
     @Binding var selectedCategory: String
     let categories: [(String, String, String)]
+    @Binding var isButtonPressed: Bool
+    @Binding var showingSuccessAnimation: Bool
     let onAddExpense: () -> Void
     
     private func hideKeyboard() {
@@ -180,35 +206,90 @@ struct QuickAddSection: View {
                 }
             }
             
-            // Add Button
+            // Add Button with enhanced animations
             Button(action: {
                 hideKeyboard()
-                onAddExpense()
+                // 添加按钮按下效果
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    isButtonPressed = true
+                }
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        isButtonPressed = false
+                    }
+                    onAddExpense()
+                }
             }) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                    Text("记一笔")
+                HStack(spacing: 12) {
+                    if showingSuccessAnimation {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .transition(.scale.combined(with: .opacity))
+                    } else {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                    
+                    Text(showingSuccessAnimation ? "记账成功" : "记一笔")
                         .font(.system(size: 18, weight: .semibold))
+                        .transition(.opacity)
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
+                .padding(.vertical, 18)
                 .background(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.2, green: 0.6, blue: 0.9),
-                            Color(red: 0.1, green: 0.5, blue: 0.8)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                    Group {
+                        if showingSuccessAnimation {
+                            LinearGradient(
+                                colors: [
+                                    Color.green.opacity(0.8),
+                                    Color.green.opacity(0.6)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        } else {
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.2, green: 0.6, blue: 0.9),
+                                    Color(red: 0.1, green: 0.5, blue: 0.8)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        }
+                    }
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(color: Color(red: 0.1, green: 0.5, blue: 0.8).opacity(0.3), radius: 8, x: 0, y: 4)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .shadow(
+                    color: showingSuccessAnimation ? 
+                        Color.green.opacity(0.4) : 
+                        Color(red: 0.1, green: 0.5, blue: 0.8).opacity(0.3),
+                    radius: isButtonPressed ? 4 : 10,
+                    x: 0,
+                    y: isButtonPressed ? 2 : 6
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(
+                            showingSuccessAnimation ? 
+                                Color.green.opacity(0.6) : 
+                                Color.white.opacity(0.3),
+                            lineWidth: 1
+                        )
+                )
             }
-            .scaleEffect(amount.isEmpty || description.isEmpty ? 0.95 : 1.0)
-            .animation(.spring(), value: amount.isEmpty || description.isEmpty)
+            .scaleEffect(
+                amount.isEmpty || description.isEmpty ? 0.95 : 
+                (isButtonPressed ? 0.97 : (showingSuccessAnimation ? 1.05 : 1.0))
+            )
+            .disabled(amount.isEmpty || description.isEmpty)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: amount.isEmpty)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: description.isEmpty)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isButtonPressed)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showingSuccessAnimation)
         }
         .padding(20)
         .background(
@@ -283,7 +364,8 @@ struct CategoryItem: View {
 }
 
 struct TodayRecordsSection: View {
-    let expenses: [(String, String)]
+    let expenses: [Expense]
+    let dataManager: ExpenseDataManager
     
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
@@ -313,29 +395,8 @@ struct TodayRecordsSection: View {
                 .padding(.vertical, 40)
             } else {
                 VStack(spacing: 12) {
-                    ForEach(Array(expenses.enumerated()), id: \.offset) { index, expense in
-                        HStack {
-                            Circle()
-                                .fill(.primary.opacity(0.2))
-                                .frame(width: 8, height: 8)
-                            
-                            Text(expense.0)
-                                .font(.system(size: 16))
-                                .foregroundColor(.primary)
-                            
-                            Spacer()
-                            
-                            Text("¥\(expense.1)")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.primary)
-                        }
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.ultraThinMaterial)
-                        )
-                        .animation(.easeInOut.delay(Double(index) * 0.1), value: expenses.count)
+                    ForEach(expenses) { expense in
+                        ExpenseRowView(expense: expense, dataManager: dataManager)
                     }
                 }
             }
@@ -344,7 +405,76 @@ struct TodayRecordsSection: View {
     }
     
     private var totalAmount: String {
-        let total = expenses.compactMap { Double($0.1) }.reduce(0, +)
+        let total = expenses.map { $0.amount }.reduce(0, +)
         return String(format: "%.0f", total)
+    }
+}
+
+struct ExpenseRowView: View {
+    let expense: Expense
+    let dataManager: ExpenseDataManager
+    @State private var showingDeleteAlert = false
+    
+    var body: some View {
+        HStack {
+            HStack(spacing: 12) {
+                Image(systemName: expense.categoryIcon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.blue)
+                    .frame(width: 20)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(expense.description)
+                        .font(.system(size: 16))
+                        .foregroundColor(.primary)
+                    
+                    Text(expense.categoryName)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Text("¥\(String(format: "%.0f", expense.amount))")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.primary)
+            }
+            
+            Button(action: {
+                showingDeleteAlert = true
+            }) {
+                Image(systemName: "trash")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.red)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(Color.red.opacity(0.1))
+                    )
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+        )
+        .alert("确认删除", isPresented: $showingDeleteAlert) {
+            Button("取消", role: .cancel) { }
+            Button("删除", role: .destructive) {
+                deleteExpense()
+            }
+        } message: {
+            Text("确定要删除这笔支出记录吗？")
+        }
+    }
+    
+    private func deleteExpense() {
+        if let index = dataManager.expenses.firstIndex(where: { $0.id == expense.id }) {
+            withAnimation(.easeInOut) {
+                dataManager.deleteExpense(at: index)
+            }
+        }
     }
 }

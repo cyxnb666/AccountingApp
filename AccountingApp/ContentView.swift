@@ -12,7 +12,7 @@ struct ContentView: View {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
             
-            // 主内容
+            // 主内容 - 恢复使用TabView
             TabView(selection: $selectedTab) {
                 AddExpenseView()
                     .environmentObject(dataManager)

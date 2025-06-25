@@ -280,6 +280,8 @@ struct AddExpenseViewWithDataManager: View {
     @State private var description = ""
     @State private var selectedCategory = "food"
     @State private var showingSuccessAlert = false
+    @State private var isButtonPressed = false
+    @State private var showingSuccessAnimation = false
     
     let categories = [
         ("food", "fork.knife", "餐饮"),
@@ -292,13 +294,12 @@ struct AddExpenseViewWithDataManager: View {
         ("other", "shippingbox", "其他")
     ]
     
-    var todayExpenses: [(String, String)] {
+    var todayExpenses: [Expense] {
         let today = Calendar.current.startOfDay(for: Date())
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
         
         return dataManager.expenses
             .filter { $0.date >= today && $0.date < tomorrow }
-            .map { ($0.description, String(format: "%.0f", $0.amount)) }
     }
     
     var body: some View {
@@ -313,23 +314,25 @@ struct AddExpenseViewWithDataManager: View {
                     description: $description,
                     selectedCategory: $selectedCategory,
                     categories: categories,
+                    isButtonPressed: $isButtonPressed,
+                    showingSuccessAnimation: $showingSuccessAnimation,
                     onAddExpense: {
                         addExpense()
                     }
                 )
                 
                 // Today's Records
-                TodayRecordsSection(expenses: todayExpenses)
+                TodayRecordsSection(expenses: todayExpenses, dataManager: dataManager)
                 
                 // Bottom padding for tab bar
                 Spacer(minLength: 100)
             }
         }
         .background(Color(.systemGroupedBackground))
-        .alert("记账成功", isPresented: $showingSuccessAlert) {
+        .alert("✅ 记账成功", isPresented: $showingSuccessAlert) {
             Button("确定", role: .cancel) { }
         } message: {
-            Text("已记录：¥\(amount) - \(description)")
+            Text("已成功记录一笔支出")
         }
     }
     
@@ -337,6 +340,10 @@ struct AddExpenseViewWithDataManager: View {
         guard let amountValue = Double(amount), !description.isEmpty else {
             return
         }
+        
+        // 添加触觉反馈
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
         
         let expense = Expense(
             id: UUID(),
@@ -347,10 +354,27 @@ struct AddExpenseViewWithDataManager: View {
         )
         
         dataManager.addExpense(expense)
-        showingSuccessAlert = true
         
-        // Reset form
-        amount = ""
-        description = ""
+        // 先显示成功动画，然后显示弹窗
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+            showingSuccessAnimation = true
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            showingSuccessAlert = true
+            showingSuccessAnimation = false
+        }
+        
+        // Reset form with animation
+        withAnimation(.easeOut(duration: 0.3)) {
+            amount = ""
+            description = ""
+        }
+    }
+    
+    private func formatCurrentTime() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: Date())
     }
 }

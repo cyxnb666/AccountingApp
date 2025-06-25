@@ -7,6 +7,8 @@ struct StatisticsView: View {
     @State private var animateChart = false
     @State private var selectedMonth = Calendar.current.component(.month, from: Date())
     @State private var selectedYear = Calendar.current.component(.year, from: Date())
+    @State private var boundaryMessage: String = ""
+    @State private var showBoundaryMessage = false
     
     private var monthlyStats: MonthlyStats {
         let calendar = Calendar.current
@@ -61,6 +63,70 @@ struct StatisticsView: View {
         return stats
     }
     
+    // 获取数据的最早月份
+    private var earliestDataMonth: (year: Int, month: Int)? {
+        guard !dataManager.expenses.isEmpty else { return nil }
+        let sortedExpenses = dataManager.expenses.sorted { $0.date < $1.date }
+        guard let earliestDate = sortedExpenses.first?.date else { return nil }
+        let calendar = Calendar.current
+        return (year: calendar.component(.year, from: earliestDate), 
+                month: calendar.component(.month, from: earliestDate))
+    }
+    
+    // 获取数据的最晚月份
+    private var latestDataMonth: (year: Int, month: Int)? {
+        guard !dataManager.expenses.isEmpty else { return nil }
+        let sortedExpenses = dataManager.expenses.sorted { $0.date > $1.date }
+        guard let latestDate = sortedExpenses.first?.date else { return nil }
+        let calendar = Calendar.current
+        return (year: calendar.component(.year, from: latestDate), 
+                month: calendar.component(.month, from: latestDate))
+    }
+    
+    // 检查是否可以切换到指定月份
+    private func canSwitchToMonth(year: Int, month: Int) -> Bool {
+        guard let earliest = earliestDataMonth, let latest = latestDataMonth else { return false }
+        
+        // 将年月转换为可比较的数字
+        let targetMonthValue = year * 12 + month
+        let earliestMonthValue = earliest.year * 12 + earliest.month
+        let latestMonthValue = latest.year * 12 + latest.month
+        
+        return targetMonthValue >= earliestMonthValue && targetMonthValue <= latestMonthValue
+    }
+    
+    // 显示边界消息
+    private func showBoundaryAlert(_ message: String) {
+        boundaryMessage = message
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showBoundaryMessage = true
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showBoundaryMessage = false
+            }
+        }
+    }
+    
+    // 辅助函数：获取前一个月
+    private func previousMonth(year: Int, month: Int) -> (year: Int, month: Int) {
+        if month == 1 {
+            return (year: year - 1, month: 12)
+        } else {
+            return (year: year, month: month - 1)
+        }
+    }
+    
+    // 辅助函数：获取下一个月
+    private func nextMonth(year: Int, month: Int) -> (year: Int, month: Int) {
+        if month == 12 {
+            return (year: year + 1, month: 1)
+        } else {
+            return (year: year, month: month + 1)
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -99,6 +165,57 @@ struct StatisticsView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
+        .gesture(
+            DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                .onEnded { value in
+                    let threshold: CGFloat = 50
+                    // 只有当水平滑动距离大于垂直滑动距离时才处理水平手势
+                    if abs(value.translation.width) > abs(value.translation.height) && abs(value.translation.width) > threshold {
+                        if value.translation.width > threshold {
+                            // 右滑 - 前一个月
+                            let (prevYear, prevMonth) = previousMonth(year: selectedYear, month: selectedMonth)
+                            if canSwitchToMonth(year: prevYear, month: prevMonth) {
+                                withAnimation(.spring()) {
+                                    selectedYear = prevYear
+                                    selectedMonth = prevMonth
+                                }
+                            } else {
+                                showBoundaryAlert("已经是最早的数据月份了")
+                            }
+                        } else if value.translation.width < -threshold {
+                            // 左滑 - 下一个月
+                            let (nextYear, nextMonth) = nextMonth(year: selectedYear, month: selectedMonth)
+                            if canSwitchToMonth(year: nextYear, month: nextMonth) {
+                                withAnimation(.spring()) {
+                                    selectedYear = nextYear
+                                    selectedMonth = nextMonth
+                                }
+                            } else {
+                                showBoundaryAlert("已经是最新的数据月份了")
+                            }
+                        }
+                    }
+                }
+        )
+        .overlay(
+            // 边界消息提示
+            VStack {
+                if showBoundaryMessage {
+                    Text(boundaryMessage)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(Color.black.opacity(0.8))
+                        )
+                        .transition(.opacity.combined(with: .scale))
+                }
+                Spacer()
+            }
+            .padding(.top, 100)
+        )
         .onAppear {
             withAnimation(.easeInOut(duration: 0.8).delay(0.2)) {
                 animateCards = true

@@ -44,14 +44,13 @@ struct MonthlyRecordsView: View {
         formatter.locale = Locale(identifier: "zh_CN")
         
         return groupedByDay.compactMap { (date, expenses) in
-            let dayExpenses = expenses.map { ExpenseRecord(description: $0.description, amount: Int($0.amount)) }
             let total = expenses.reduce(0) { $0 + Int($1.amount) }
             
             return DayRecord(
                 date: formatter.string(from: date),
                 actualDate: date,
                 total: total,
-                expenses: dayExpenses
+                expenses: expenses
             )
         }.sorted { $0.actualDate > $1.actualDate }
     }
@@ -90,7 +89,7 @@ struct MonthlyRecordsView: View {
                     // Records List
                     LazyVStack(spacing: 16) {
                         ForEach(Array(monthlyData.enumerated()), id: \.offset) { index, dayRecord in
-                            DayRecordView(dayRecord: dayRecord)
+                            DayRecordView(dayRecord: dayRecord, dataManager: dataManager)
                                 .animation(.easeInOut.delay(Double(index) * 0.1), value: monthlyData.count)
                         }
                     }
@@ -219,6 +218,7 @@ struct MonthSelectorView: View {
 
 struct DayRecordView: View {
     let dayRecord: DayRecord
+    let dataManager: ExpenseDataManager
     @State private var isExpanded = false
     
     var body: some View {
@@ -260,33 +260,12 @@ struct DayRecordView: View {
             // Expenses List
             if isExpanded {
                 VStack(spacing: 8) {
-                    ForEach(Array(dayRecord.expenses.enumerated()), id: \.offset) { index, expense in
-                        HStack {
-                            Circle()
-                                .fill(.primary.opacity(0.2))
-                                .frame(width: 6, height: 6)
-                            
-                            Text(expense.description)
-                                .font(.system(size: 14))
-                                .foregroundColor(.primary)
-                            
-                            Spacer()
-                            
-                            Text("¥\(expense.amount)")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.primary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color(.systemGray6))
-                        )
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .offset(y: -10)),
-                            removal: .opacity.combined(with: .offset(y: -5))
-                        ))
-                        .animation(.easeInOut.delay(Double(index) * 0.05), value: isExpanded)
+                    ForEach(dayRecord.expenses) { expense in
+                        MonthlyExpenseRowView(expense: expense, dataManager: dataManager)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .offset(y: -10)),
+                                removal: .opacity.combined(with: .offset(y: -5))
+                            ))
                     }
                 }
                 .padding(.horizontal, 16)
@@ -308,17 +287,81 @@ struct DayRecordView: View {
     }
 }
 
+struct MonthlyExpenseRowView: View {
+    let expense: Expense
+    let dataManager: ExpenseDataManager
+    @State private var showingDeleteAlert = false
+    
+    var body: some View {
+        HStack {
+            HStack(spacing: 12) {
+                Image(systemName: expense.categoryIcon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.blue)
+                    .frame(width: 16)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(expense.description)
+                        .font(.system(size: 14))
+                        .foregroundColor(.primary)
+                    
+                    Text(expense.categoryName)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Text("¥\(String(format: "%.0f", expense.amount))")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.primary)
+            }
+            
+            Button(action: {
+                showingDeleteAlert = true
+            }) {
+                Image(systemName: "trash")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.red)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle()
+                            .fill(Color.red.opacity(0.1))
+                    )
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(.systemGray6))
+        )
+        .alert("确认删除", isPresented: $showingDeleteAlert) {
+            Button("取消", role: .cancel) { }
+            Button("删除", role: .destructive) {
+                deleteExpense()
+            }
+        } message: {
+            Text("确定要删除这笔支出记录吗？")
+        }
+    }
+    
+    private func deleteExpense() {
+        if let index = dataManager.expenses.firstIndex(where: { $0.id == expense.id }) {
+            withAnimation(.easeInOut) {
+                dataManager.deleteExpense(at: index)
+            }
+        }
+    }
+}
+
 // Data Models
 struct DayRecord {
     let date: String
     let actualDate: Date
     let total: Int
-    let expenses: [ExpenseRecord]
-}
-
-struct ExpenseRecord {
-    let description: String
-    let amount: Int
+    let expenses: [Expense]
 }
 
 // Dynamic Header with smooth animations
