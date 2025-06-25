@@ -6,9 +6,9 @@ struct AddExpenseView: View {
     @State private var amount = ""
     @State private var description = ""
     @State private var selectedCategory = ""
-    @State private var showingSuccessAlert = false
     @State private var isButtonPressed = false
     @State private var showingSuccessAnimation = false
+    @State private var showSuccessMessage = false
     
     var categories: [(String, String, String)] {
         dataManager.categories.map { ($0.id, $0.icon, $0.name) }
@@ -57,11 +57,34 @@ struct AddExpenseView: View {
                 selectedCategory = categories.first?.0 ?? ""
             }
         }
-        .alert("✅ 记账成功", isPresented: $showingSuccessAlert) {
-            Button("确定", role: .cancel) { }
-        } message: {
-            Text("已成功记录一笔支出")
-        }
+        .overlay(
+            VStack {
+                if showSuccessMessage {
+                    HStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.green)
+                        
+                        Text("记账成功")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.primary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 25)
+                            .fill(.ultraThinMaterial)
+                            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                    )
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale).combined(with: .offset(y: -20)),
+                        removal: .opacity.combined(with: .offset(y: -30))
+                    ))
+                }
+                Spacer()
+            }
+            .padding(.top, 120)
+        )
     }
     
     private func hideKeyboard() {
@@ -87,14 +110,23 @@ struct AddExpenseView: View {
         
         dataManager.addExpense(expense)
         
-        // 先显示成功动画，然后显示弹窗
+        // 先显示成功动画，然后显示页内提示
         withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
             showingSuccessAnimation = true
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            showingSuccessAlert = true
             showingSuccessAnimation = false
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                showSuccessMessage = true
+            }
+        }
+        
+        // 2秒后隐藏成功提示
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.3) {
+            withAnimation(.easeOut(duration: 0.4)) {
+                showSuccessMessage = false
+            }
         }
         
         // Reset form with animation

@@ -30,7 +30,7 @@ struct ContentView: View {
                     .environmentObject(dataManager)
                     .tag(3)
             }
-            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+            .tabViewStyle(DefaultTabViewStyle())
             
             // 自定义底部Tab Bar
             VStack {

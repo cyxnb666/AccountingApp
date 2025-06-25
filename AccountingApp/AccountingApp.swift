@@ -10,7 +10,14 @@ struct AccountingApp: App {
             ContentView()
                 .environmentObject(dataManager)
                 .preferredColorScheme(.light)
+                .onAppear {
+                    // 锁定竖屏方向
+                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                        windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
+                    }
+                }
         }
+        .windowResizability(.contentSize)
     }
 }
 
