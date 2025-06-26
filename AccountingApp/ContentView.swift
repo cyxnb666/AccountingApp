@@ -131,7 +131,7 @@ struct TabBarItem: View {
     }
 }
 
-// Color Extension for Hex Colors
+// Color Extension for Hex Colors and Brand Colors
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -157,4 +157,46 @@ extension Color {
             opacity: Double(a) / 255
         )
     }
+    
+    // MARK: - Brand Colors
+    /// 主品牌色 - 蓝色系
+    static let brandPrimary = Color.blue
+    
+    /// 副品牌色1 - 紫色系
+    static let brandSecondary = Color.purple
+    
+    /// 副品牌色2 - 青色系
+    static let brandTertiary = Color.teal
+    
+    /// 强调色 - 橙色系
+    static let brandAccent = Color.orange
+    
+    // MARK: - Category Colors
+    static func categoryColor(for categoryId: String) -> Color {
+        switch categoryId {
+        case "food": return .red          // 餐饮 - 红色
+        case "transport": return .blue    // 交通 - 蓝色
+        case "entertainment": return .purple // 娱乐 - 紫色
+        case "shopping": return .pink      // 购物 - 粉色
+        case "medical": return .green      // 医疗 - 绿色
+        case "gift": return .orange        // 人情 - 橙色
+        case "bills": return .yellow       // 缴费 - 黄色
+        case "other": return .gray         // 其他 - 灰色
+        default: return .gray
+        }
+    }
+    
+    // MARK: - Adaptive Colors for Dark Mode
+    static let adaptiveBackground = Color(.systemBackground)
+    static let adaptiveSecondaryBackground = Color(.secondarySystemBackground)
+    static let adaptiveTertiaryBackground = Color(.tertiarySystemBackground)
+    static let adaptiveGroupedBackground = Color(.systemGroupedBackground)
+    static let adaptiveSecondaryGroupedBackground = Color(.secondarySystemGroupedBackground)
+    
+    static let adaptiveLabel = Color(.label)
+    static let adaptiveSecondaryLabel = Color(.secondaryLabel)
+    static let adaptiveTertiaryLabel = Color(.tertiaryLabel)
+    
+    static let adaptiveSeparator = Color(.separator)
+    static let adaptiveOpaqueSeparator = Color(.opaqueSeparator)
 }

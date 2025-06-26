@@ -230,6 +230,7 @@ struct QuickAddSection: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 15) {
                 ForEach(categories, id: \.0) { category in
                     CategoryItem(
+                        categoryId: category.0,
                         icon: category.1,
                         title: category.2,
                         isSelected: selectedCategory == category.0
@@ -338,6 +339,7 @@ struct QuickAddSection: View {
 }
 
 struct CategoryItem: View {
+    let categoryId: String
     let icon: String
     let title: String
     let isSelected: Bool
@@ -355,7 +357,7 @@ struct CategoryItem: View {
             VStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(isSelected ? .white : .primary)
+                    .foregroundColor(isSelected ? .white : Color.categoryColor(for: categoryId))
                     .scaleEffect(isSelected ? 1.2 : 1.0)
                 
                 Text(title)
@@ -405,9 +407,27 @@ struct TodayRecordsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack {
-                Text("今日支出")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.primary)
+                HStack(spacing: 8) {
+                    Text("今日支出")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    // Category indicator dots
+                    if !expenses.isEmpty {
+                        HStack(spacing: 3) {
+                            ForEach(Array(Set(expenses.map { $0.category })).prefix(3), id: \.self) { categoryId in
+                                Circle()
+                                    .fill(Color.categoryColor(for: categoryId))
+                                    .frame(width: 6, height: 6)
+                            }
+                            if Set(expenses.map { $0.category }).count > 3 {
+                                Circle()
+                                    .fill(.secondary)
+                                    .frame(width: 4, height: 4)
+                            }
+                        }
+                    }
+                }
                 
                 Spacer()
                 
@@ -452,10 +472,16 @@ struct ExpenseRowView: View {
     
     var body: some View {
         HStack {
+            // Category color bar
+            Rectangle()
+                .fill(Color.categoryColor(for: expense.category))
+                .frame(width: 4)
+                .clipShape(RoundedRectangle(cornerRadius: 2))
+            
             HStack(spacing: 12) {
                 Image(systemName: expense.categoryIcon)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.blue)
+                    .foregroundColor(Color.categoryColor(for: expense.category))
                     .frame(width: 20)
                 
                 VStack(alignment: .leading, spacing: 2) {

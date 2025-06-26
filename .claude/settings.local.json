@@ -6,7 +6,8 @@
       "Bash(swiftc:*)",
       "Bash(swift:*)",
       "Bash(find:*)",
-      "Bash(time xcodebuild:*)"
+      "Bash(time xcodebuild:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }

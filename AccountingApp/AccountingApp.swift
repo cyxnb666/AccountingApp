@@ -9,7 +9,6 @@ struct AccountingApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(dataManager)
-                .preferredColorScheme(.light)
                 .onAppear {
                     // 锁定竖屏方向
                     if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {

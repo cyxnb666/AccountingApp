@@ -13,9 +13,12 @@ struct MonthlyRecordsView: View {
     @State private var lastExpenseCount: Int = 0
     @State private var boundaryMessage: String = ""
     @State private var showBoundaryMessage = false
+    @State private var searchText = ""
+    @State private var selectedCategoryFilter = "all"
+    @State private var showingFilterOptions = false
     
     private var monthlyData: [DayRecord] {
-        // 缓存机制：只有当月份、年份或数据变化时才重新计算
+        // 缓存机制：只有当月份、年份、数据、搜索条件或筛选条件变化时才重新计算
         if currentMonth != lastCachedMonth || 
            currentYear != lastCachedYear || 
            dataManager.expenses.count != lastExpenseCount {
@@ -25,7 +28,7 @@ struct MonthlyRecordsView: View {
             lastCachedYear = currentYear
             lastExpenseCount = dataManager.expenses.count
         }
-        return cachedMonthlyData
+        return applySearchAndFilter(to: cachedMonthlyData)
     }
     
     private func calculateMonthlyData() -> [DayRecord] {
@@ -55,6 +58,36 @@ struct MonthlyRecordsView: View {
                 expenses: expenses
             )
         }.sorted { $0.actualDate > $1.actualDate }
+    }
+    
+    private func applySearchAndFilter(to records: [DayRecord]) -> [DayRecord] {
+        return records.compactMap { dayRecord in
+            let filteredExpenses = dayRecord.expenses.filter { expense in
+                // 搜索筛选
+                let matchesSearch = searchText.isEmpty || 
+                    expense.description.localizedCaseInsensitiveContains(searchText) ||
+                    expense.categoryName.localizedCaseInsensitiveContains(searchText)
+                
+                // 分类筛选
+                let matchesCategory = selectedCategoryFilter == "all" || 
+                    expense.category == selectedCategoryFilter
+                
+                return matchesSearch && matchesCategory
+            }
+            
+            // 如果筛选后没有支出记录，则不显示这一天
+            if filteredExpenses.isEmpty {
+                return nil
+            }
+            
+            let total = filteredExpenses.reduce(0) { $0 + Int($1.amount) }
+            return DayRecord(
+                date: dayRecord.date,
+                actualDate: dayRecord.actualDate,
+                total: total,
+                expenses: filteredExpenses
+            )
+        }
     }
     
     var monthlyTotal: Int {
@@ -155,15 +188,32 @@ struct MonthlyRecordsView: View {
                     )
                     .zIndex(1)
                     
+                    // Search and Filter Section
+                    SearchAndFilterSection(
+                        searchText: $searchText,
+                        selectedCategoryFilter: $selectedCategoryFilter,
+                        showingFilterOptions: $showingFilterOptions,
+                        dataManager: dataManager
+                    )
+                    .padding(.horizontal, 4)
+                    
+                    // Trend Charts Section
+                    TrendChartsSection(
+                        currentMonth: currentMonth,
+                        currentYear: currentYear,
+                        dataManager: dataManager
+                    )
+                    .padding(.horizontal, 4)
+                    
                     // Records List
-                    LazyVStack(spacing: 16) {
+                    LazyVStack(spacing: 12) {
                         ForEach(Array(monthlyData.enumerated()), id: \.offset) { index, dayRecord in
                             DayRecordView(dayRecord: dayRecord, dataManager: dataManager)
                                 .animation(.easeInOut.delay(Double(index) * 0.1), value: monthlyData.count)
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
                     .padding(.bottom, 100) // Space for tab bar
                 }
                 .background(
@@ -463,30 +513,48 @@ struct DayRecordView: View {
                 }
             }) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(dayRecord.date)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 17, weight: .bold))
                             .foregroundColor(.primary)
                         
-                        Text("\(dayRecord.expenses.count) 笔消费")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 8) {
+                            Text("\(dayRecord.expenses.count) 笔")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.brandPrimary.opacity(0.1))
+                                )
+                            
+                            Text("消费")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
                     }
                     
                     Spacer()
                     
-                    VStack(alignment: .trailing, spacing: 4) {
+                    VStack(alignment: .trailing, spacing: 6) {
                         Text("¥\(dayRecord.total)")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.primary)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(Color.brandPrimary)
                         
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 6) {
+                            Text(isExpanded ? "收起" : "展开")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                            
+                            Image(systemName: isExpanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.brandSecondary)
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, 14)
             }
             .buttonStyle(PlainButtonStyle())
             
@@ -507,15 +575,41 @@ struct DayRecordView: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(isExpanded ? 0.15 : 0.08), radius: isExpanded ? 20 : 12, x: 0, y: isExpanded ? 8 : 6)
+                
+                // 添加顶部高光效果
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.3), .clear],
+                            startPoint: .top,
+                            endPoint: UnitPoint(x: 0.5, y: 0.3)
+                        )
+                    )
+            }
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(.primary.opacity(isExpanded ? 0.3 : 0.1), lineWidth: 1)
+                .stroke(
+                    LinearGradient(
+                        colors: isExpanded ? 
+                            [Color.brandPrimary.opacity(0.6), Color.brandSecondary.opacity(0.4)] : 
+                            [.primary.opacity(0.2), .clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: isExpanded ? 2 : 1
+                )
         )
-        .scaleEffect(isExpanded ? 1.02 : 1.0)
+        .scaleEffect(isExpanded ? 1.03 : 1.0)
+        .rotation3DEffect(
+            .degrees(isExpanded ? 2 : 0),
+            axis: (x: 1, y: 0, z: 0),
+            perspective: 0.8
+        )
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isExpanded)
     }
 }
@@ -527,10 +621,16 @@ struct MonthlyExpenseRowView: View {
     
     var body: some View {
         HStack {
+            // Category color bar
+            Rectangle()
+                .fill(Color.categoryColor(for: expense.category))
+                .frame(width: 3)
+                .clipShape(RoundedRectangle(cornerRadius: 1.5))
+            
             HStack(spacing: 12) {
                 Image(systemName: expense.categoryIcon)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.blue)
+                    .foregroundColor(Color.categoryColor(for: expense.category))
                     .frame(width: 16)
                 
                 VStack(alignment: .leading, spacing: 2) {
@@ -564,7 +664,7 @@ struct MonthlyExpenseRowView: View {
             }
             .buttonStyle(PlainButtonStyle())
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
@@ -699,6 +799,345 @@ struct DynamicMonthlyHeaderView: View {
         )
         .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
         .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isCollapsed)
+    }
+}
+
+// Search and Filter Section
+struct SearchAndFilterSection: View {
+    @Binding var searchText: String
+    @Binding var selectedCategoryFilter: String
+    @Binding var showingFilterOptions: Bool
+    let dataManager: ExpenseDataManager
+    
+    private let allCategories = [
+        ("all", "line.horizontal.3.decrease.circle", "全部"),
+        ("food", "fork.knife", "餐饮"),
+        ("transport", "car", "交通"),
+        ("entertainment", "tv", "娱乐"),
+        ("shopping", "bag", "购物"),
+        ("medical", "cross", "医疗"),
+        ("gift", "gift", "人情"),
+        ("bills", "lightbulb", "缴费"),
+        ("other", "shippingbox", "其他")
+    ]
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // Search Bar
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 16))
+                
+                TextField("搜索支出描述或分类...", text: $searchText)
+                    .font(.system(size: 16))
+                    .textFieldStyle(PlainTextFieldStyle())
+                
+                if !searchText.isEmpty {
+                    Button(action: {
+                        searchText = ""
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 16))
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.adaptiveSecondaryBackground)
+            )
+            
+            // Filter Categories (Horizontal Scroll)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(allCategories, id: \.0) { category in
+                        FilterCategoryButton(
+                            categoryId: category.0,
+                            icon: category.1,
+                            title: category.2,
+                            isSelected: selectedCategoryFilter == category.0
+                        ) {
+                            withAnimation(.spring()) {
+                                selectedCategoryFilter = category.0
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+    }
+}
+
+struct FilterCategoryButton: View {
+    let categoryId: String
+    let icon: String
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(isSelected ? .white : Color.categoryColor(for: categoryId))
+                
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(isSelected ? .white : .primary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        isSelected ? 
+                            Color.categoryColor(for: categoryId) :
+                            Color.categoryColor(for: categoryId).opacity(0.1)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(
+                        Color.categoryColor(for: categoryId).opacity(isSelected ? 1.0 : 0.3),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isSelected ? 1.05 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+    }
+}
+
+// Trend Charts Section
+struct TrendChartsSection: View {
+    let currentMonth: Int
+    let currentYear: Int
+    let dataManager: ExpenseDataManager
+    @State private var animateCharts = false
+    
+    private var chartData: [DailyExpenseData] {
+        let calendar = Calendar.current
+        let startOfMonth = calendar.date(from: DateComponents(year: currentYear, month: currentMonth, day: 1))!
+        let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
+        
+        let monthlyExpenses = dataManager.expenses.filter { expense in
+            expense.date >= startOfMonth && expense.date <= endOfMonth
+        }
+        
+        let groupedByDay = Dictionary(grouping: monthlyExpenses) { expense in
+            calendar.component(.day, from: expense.date)
+        }
+        
+        var chartData: [DailyExpenseData] = []
+        let daysInMonth = calendar.range(of: .day, in: .month, for: startOfMonth)?.count ?? 30
+        
+        for day in 1...daysInMonth {
+            let expenses = groupedByDay[day] ?? []
+            let total = expenses.reduce(0) { $0 + $1.amount }
+            chartData.append(DailyExpenseData(day: day, amount: total))
+        }
+        
+        return chartData
+    }
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("支出趋势")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("单位：元")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            
+            VStack(spacing: 16) {
+                // Bar Chart
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("日支出柱状图")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    
+                    DailyBarChart(data: chartData, animate: animateCharts)
+                        .frame(height: 120)
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.adaptiveSecondaryBackground)
+                )
+                
+                // Line Chart  
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("支出趋势线图")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    
+                    DailyLineChart(data: chartData, animate: animateCharts)
+                        .frame(height: 120)
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.adaptiveSecondaryBackground)
+                )
+            }
+        }
+        .padding(.horizontal, 20)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.0).delay(0.3)) {
+                animateCharts = true
+            }
+        }
+        .onChange(of: currentMonth) { _ in
+            animateCharts = false
+            withAnimation(.easeInOut(duration: 0.8).delay(0.2)) {
+                animateCharts = true
+            }
+        }
+        .onChange(of: currentYear) { _ in
+            animateCharts = false
+            withAnimation(.easeInOut(duration: 0.8).delay(0.2)) {
+                animateCharts = true
+            }
+        }
+    }
+}
+
+// Data structure for charts
+struct DailyExpenseData {
+    let day: Int
+    let amount: Double
+}
+
+// Bar Chart Component
+struct DailyBarChart: View {
+    let data: [DailyExpenseData]
+    let animate: Bool
+    
+    private var maxAmount: Double {
+        data.map { $0.amount }.max() ?? 0
+    }
+    
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 1) {
+            ForEach(data.indices, id: \.self) { index in
+                let item = data[index]
+                VStack(spacing: 2) {
+                    // Bar
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.brandPrimary.opacity(0.8), Color.brandSecondary.opacity(0.6)],
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                        .frame(
+                            width: max(2, (UIScreen.main.bounds.width - 120) / CGFloat(data.count)),
+                            height: animate ? 
+                                CGFloat((item.amount / (maxAmount > 0 ? maxAmount : 1)) * 100) : 0
+                        )
+                        .opacity(item.amount > 0 ? 1.0 : 0.1)
+                    
+                    // Day label (only show every 5 days to avoid crowding)
+                    if item.day % 5 == 1 || item.day == data.count {
+                        Text("\(item.day)")
+                            .font(.system(size: 8))
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("")
+                            .font(.system(size: 8))
+                    }
+                }
+                .animation(.easeInOut(duration: 0.8).delay(Double(index) * 0.02), value: animate)
+            }
+        }
+        .padding(.bottom, 20)
+    }
+}
+
+// Line Chart Component
+struct DailyLineChart: View {
+    let data: [DailyExpenseData]
+    let animate: Bool
+    
+    private var maxAmount: Double {
+        data.map { $0.amount }.max() ?? 0
+    }
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Grid lines
+                VStack(spacing: 0) {
+                    ForEach(0..<5) { _ in
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 0.5)
+                        Spacer()
+                    }
+                }
+                
+                // Line path
+                Path { path in
+                    let width = geometry.size.width
+                    let height = geometry.size.height - 20
+                    let stepX = width / CGFloat(data.count - 1)
+                    
+                    for (index, item) in data.enumerated() {
+                        let x = CGFloat(index) * stepX
+                        let y = height - CGFloat((item.amount / (maxAmount > 0 ? maxAmount : 1)) * Double(height))
+                        
+                        if index == 0 {
+                            path.move(to: CGPoint(x: x, y: y))
+                        } else {
+                            path.addLine(to: CGPoint(x: x, y: y))
+                        }
+                    }
+                }
+                .trim(from: 0, to: animate ? 1 : 0)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.brandTertiary, Color.brandPrimary],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                )
+                .animation(.easeInOut(duration: 1.5), value: animate)
+                
+                // Data points
+                ForEach(data.indices, id: \.self) { index in
+                    let item = data[index]
+                    let width = geometry.size.width
+                    let height = geometry.size.height - 20
+                    let stepX = width / CGFloat(data.count - 1)
+                    let x = CGFloat(index) * stepX
+                    let y = height - CGFloat((item.amount / (maxAmount > 0 ? maxAmount : 1)) * Double(height))
+                    
+                    Circle()
+                        .fill(Color.brandAccent)
+                        .frame(width: item.amount > 0 ? 6 : 3, height: item.amount > 0 ? 6 : 3)
+                        .position(x: x, y: y)
+                        .opacity(animate ? 1 : 0)
+                        .scaleEffect(animate ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.5).delay(Double(index) * 0.05), value: animate)
+                }
+            }
+        }
+        .padding(.bottom, 20)
     }
 }
 
