@@ -27,6 +27,7 @@ struct AddExpenseView: View {
             VStack(spacing: 0) {
                 // Header
                 HeaderView()
+                    .ignoresSafeArea(.all, edges: .top)
                 
                 // Quick Add Section
                 QuickAddSection(
@@ -49,6 +50,7 @@ struct AddExpenseView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
+        .ignoresSafeArea(.container, edges: .top)
         .onTapGesture {
             hideKeyboard()
         }
@@ -155,7 +157,7 @@ struct HeaderView: View {
                 endPoint: .bottomTrailing
             )
             
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 Text("记账助手")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
@@ -164,9 +166,10 @@ struct HeaderView: View {
                     .font(.system(size: 18, weight: .medium))
                     .foregroundColor(.white.opacity(0.9))
             }
-            .padding(.top, 50)
-            .padding(.bottom, 30)
+            .padding(.top, 100)
+            .padding(.bottom, 40)
         }
+        .frame(height: 220)
         .clipShape(
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,

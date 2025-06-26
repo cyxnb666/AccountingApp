@@ -14,6 +14,7 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 // Header
                 SettingsHeaderView()
+                    .ignoresSafeArea(.all, edges: .top)
                 
                 VStack(spacing: 20) {
                     // Budget Settings
@@ -40,6 +41,7 @@ struct SettingsView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
+        .ignoresSafeArea(.container, edges: .top)
         .alert("设置预算", isPresented: $showingBudgetAlert) {
             TextField("输入预算金额", text: $tempBudget)
                 .keyboardType(.numberPad)
@@ -83,7 +85,7 @@ struct SettingsHeaderView: View {
                 endPoint: .bottomTrailing
             )
             
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 Text("设置")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
@@ -92,9 +94,10 @@ struct SettingsHeaderView: View {
                     .font(.system(size: 18, weight: .medium))
                     .foregroundColor(.white.opacity(0.9))
             }
-            .padding(.top, 50)
-            .padding(.bottom, 30)
+            .padding(.top, 100)
+            .padding(.bottom, 40)
         }
+        .frame(height: 220)
         .clipShape(
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,

@@ -141,12 +141,14 @@ struct MonthlyRecordsView: View {
                         isCollapsed: isHeaderCollapsed
                     )
                     .environmentObject(dataManager)
+                    .ignoresSafeArea(.all, edges: .top)
                     
                     // Month Selector (now sticky)
                     MonthSelectorView(
                         currentMonth: $currentMonth,
                         currentYear: $currentYear
                     )
+                    .environmentObject(dataManager)
                     .background(
                         .ultraThinMaterial,
                         in: Rectangle()
@@ -178,38 +180,7 @@ struct MonthlyRecordsView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .gesture(
-                DragGesture(minimumDistance: 30, coordinateSpace: .local)
-                    .onEnded { value in
-                        let threshold: CGFloat = 50
-                        // 只有当水平滑动距离大于垂直滑动距离时才处理水平手势
-                        if abs(value.translation.width) > abs(value.translation.height) && abs(value.translation.width) > threshold {
-                            if value.translation.width > threshold {
-                                // 右滑 - 前一个月
-                                let (prevYear, prevMonth) = previousMonth(year: currentYear, month: currentMonth)
-                                if canSwitchToMonth(year: prevYear, month: prevMonth) {
-                                    withAnimation(.spring()) {
-                                        currentYear = prevYear
-                                        currentMonth = prevMonth
-                                    }
-                                } else {
-                                    showBoundaryAlert("已经是最早的数据月份了")
-                                }
-                            } else if value.translation.width < -threshold {
-                                // 左滑 - 下一个月
-                                let (nextYear, nextMonth) = nextMonth(year: currentYear, month: currentMonth)
-                                if canSwitchToMonth(year: nextYear, month: nextMonth) {
-                                    withAnimation(.spring()) {
-                                        currentYear = nextYear
-                                        currentMonth = nextMonth
-                                    }
-                                } else {
-                                    showBoundaryAlert("已经是最新的数据月份了")
-                                }
-                            }
-                        }
-                    }
-            )
+            .ignoresSafeArea(.container, edges: .top)
             .overlay(
                 // 边界消息提示
                 VStack {
@@ -272,64 +243,208 @@ struct MonthlyHeaderView: View {
 struct MonthSelectorView: View {
     @Binding var currentMonth: Int
     @Binding var currentYear: Int
+    @EnvironmentObject var dataManager: ExpenseDataManager
+    @State private var boundaryMessage: String = ""
+    @State private var showBoundaryMessage = false
+    
+    // 获取数据的最早月份
+    private var earliestDataMonth: (year: Int, month: Int)? {
+        guard !dataManager.expenses.isEmpty else { return nil }
+        let sortedExpenses = dataManager.expenses.sorted { $0.date < $1.date }
+        guard let earliestDate = sortedExpenses.first?.date else { return nil }
+        let calendar = Calendar.current
+        return (year: calendar.component(.year, from: earliestDate), 
+                month: calendar.component(.month, from: earliestDate))
+    }
+    
+    // 获取数据的最晚月份
+    private var latestDataMonth: (year: Int, month: Int)? {
+        guard !dataManager.expenses.isEmpty else { return nil }
+        let sortedExpenses = dataManager.expenses.sorted { $0.date > $1.date }
+        guard let latestDate = sortedExpenses.first?.date else { return nil }
+        let calendar = Calendar.current
+        return (year: calendar.component(.year, from: latestDate), 
+                month: calendar.component(.month, from: latestDate))
+    }
+    
+    // 检查是否可以切换到指定月份
+    private func canSwitchToMonth(year: Int, month: Int) -> Bool {
+        guard let earliest = earliestDataMonth, let latest = latestDataMonth else { return false }
+        
+        let targetMonthValue = year * 12 + month
+        let earliestMonthValue = earliest.year * 12 + earliest.month
+        let latestMonthValue = latest.year * 12 + latest.month
+        
+        return targetMonthValue >= earliestMonthValue && targetMonthValue <= latestMonthValue
+    }
+    
+    // 显示边界消息
+    private func showBoundaryAlert(_ message: String) {
+        boundaryMessage = message
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showBoundaryMessage = true
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showBoundaryMessage = false
+            }
+        }
+    }
+    
+    // 辅助函数：获取前一个月
+    private func previousMonthData(year: Int, month: Int) -> (year: Int, month: Int) {
+        if month == 1 {
+            return (year: year - 1, month: 12)
+        } else {
+            return (year: year, month: month - 1)
+        }
+    }
+    
+    // 辅助函数：获取下一个月
+    private func nextMonthData(year: Int, month: Int) -> (year: Int, month: Int) {
+        if month == 12 {
+            return (year: year + 1, month: 1)
+        } else {
+            return (year: year, month: month + 1)
+        }
+    }
     
     var body: some View {
         HStack {
             Button(action: previousMonth) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                    )
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 12, weight: .medium))
+                        .opacity(0.6)
+                }
+                .foregroundColor(.primary)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                )
             }
             
             Spacer()
             
-            Text("\(currentYear)年\(currentMonth)月")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.primary)
-                .animation(.spring(), value: currentMonth)
-                .animation(.spring(), value: currentYear)
+            VStack(spacing: 2) {
+                Text("\(currentYear)年\(currentMonth)月")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.primary)
+                    .animation(.spring(), value: currentMonth)
+                    .animation(.spring(), value: currentYear)
+                
+                Text("← 滑动切换 →")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.secondary.opacity(0.7))
+            }
             
             Spacer()
             
             Button(action: nextMonth) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                    )
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .opacity(0.6)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .foregroundColor(.primary)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                )
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 15)
         .background(.ultraThinMaterial)
         .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .gesture(
+            DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                .onEnded { value in
+                    let threshold: CGFloat = 80
+                    let horizontalDistance = abs(value.translation.width)
+                    let verticalDistance = abs(value.translation.height)
+                    
+                    // 只有当水平滑动距离明显大于垂直滑动距离时才处理
+                    if horizontalDistance > threshold && horizontalDistance > verticalDistance * 2 {
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                        impactFeedback.impactOccurred()
+                        
+                        if value.translation.width > threshold {
+                            // 右滑 - 前一个月
+                            let (prevYear, prevMonth) = previousMonthData(year: currentYear, month: currentMonth)
+                            if canSwitchToMonth(year: prevYear, month: prevMonth) {
+                                withAnimation(.spring()) {
+                                    currentYear = prevYear
+                                    currentMonth = prevMonth
+                                }
+                            } else {
+                                showBoundaryAlert("已经是最早的数据月份了")
+                            }
+                        } else if value.translation.width < -threshold {
+                            // 左滑 - 下一个月
+                            let (nextYear, nextMonth) = nextMonthData(year: currentYear, month: currentMonth)
+                            if canSwitchToMonth(year: nextYear, month: nextMonth) {
+                                withAnimation(.spring()) {
+                                    currentYear = nextYear
+                                    currentMonth = nextMonth
+                                }
+                            } else {
+                                showBoundaryAlert("已经是最新的数据月份了")
+                            }
+                        }
+                    }
+                }
+        )
+        .overlay(
+            VStack {
+                if showBoundaryMessage {
+                    Text(boundaryMessage)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.black.opacity(0.8))
+                        )
+                        .transition(.opacity.combined(with: .scale))
+                        .offset(y: -60)
+                }
+            }
+        )
     }
     
     private func previousMonth() {
-        withAnimation(.spring()) {
-            currentMonth -= 1
-            if currentMonth < 1 {
-                currentMonth = 12
-                currentYear -= 1
+        let (prevYear, prevMonth) = previousMonthData(year: currentYear, month: currentMonth)
+        if canSwitchToMonth(year: prevYear, month: prevMonth) {
+            withAnimation(.spring()) {
+                currentYear = prevYear
+                currentMonth = prevMonth
             }
+        } else {
+            showBoundaryAlert("已经是最早的数据月份了")
         }
     }
     
     private func nextMonth() {
-        withAnimation(.spring()) {
-            currentMonth += 1
-            if currentMonth > 12 {
-                currentMonth = 1
-                currentYear += 1
+        let (nextYear, nextMonth) = nextMonthData(year: currentYear, month: currentMonth)
+        if canSwitchToMonth(year: nextYear, month: nextMonth) {
+            withAnimation(.spring()) {
+                currentYear = nextYear
+                currentMonth = nextMonth
             }
+        } else {
+            showBoundaryAlert("已经是最新的数据月份了")
         }
     }
 }
@@ -515,41 +630,50 @@ struct DynamicMonthlyHeaderView: View {
                     
                     // Monthly stats
                     HStack(spacing: 20) {
-                        VStack(spacing: 4) {
+                        VStack(spacing: 6) {
                             Text("¥\(monthlyTotal)")
-                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
                                 .foregroundColor(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                             Text("本月支出")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white.opacity(0.8))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white.opacity(0.9))
                         }
+                        .frame(minHeight: 50)
                         
                         if dataManager.monthlyBudget > 0 {
                             Rectangle()
                                 .fill(.white.opacity(0.3))
-                                .frame(width: 1, height: 40)
+                                .frame(width: 1, height: 45)
                             
-                            VStack(spacing: 4) {
+                            VStack(spacing: 6) {
                                 Text("¥\(Int(dataManager.monthlyBudget - Double(monthlyTotal)))")
-                                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                                    .font(.system(size: 22, weight: .bold, design: .rounded))
                                     .foregroundColor(Double(monthlyTotal) > dataManager.monthlyBudget ? .red : .white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
                                 Text("预算余额")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.8))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
                             }
+                            .frame(minHeight: 50)
                         } else {
                             Rectangle()
                                 .fill(.white.opacity(0.3))
-                                .frame(width: 1, height: 40)
+                                .frame(width: 1, height: 45)
                             
-                            VStack(spacing: 4) {
+                            VStack(spacing: 6) {
                                 Text("\(Int(Double(monthlyTotal) / 30))")
-                                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                                    .font(.system(size: 22, weight: .bold, design: .rounded))
                                     .foregroundColor(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
                                 Text("日均支出")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.8))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
                             }
+                            .frame(minHeight: 50)
                         }
                     }
                     .transition(.opacity.combined(with: .scale))
@@ -560,11 +684,11 @@ struct DynamicMonthlyHeaderView: View {
                         .transition(.opacity.combined(with: .scale))
                 }
             }
-            .padding(.top, isCollapsed ? 20 : 50)
-            .padding(.bottom, isCollapsed ? 15 : 30)
+            .padding(.top, isCollapsed ? 60 : 100)
+            .padding(.bottom, isCollapsed ? 20 : 40)
             .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isCollapsed)
         }
-        .frame(height: isCollapsed ? 80 : 160)
+        .frame(height: isCollapsed ? 120 : 220)
         .clipShape(
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,

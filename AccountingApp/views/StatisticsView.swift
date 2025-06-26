@@ -135,12 +135,14 @@ struct StatisticsView: View {
             VStack(spacing: 0) {
                 // Header
                 StatisticsHeaderView()
+                    .ignoresSafeArea(.all, edges: .top)
                 
                 // Month Selector
                 MonthSelectorView(
                     currentMonth: $selectedMonth,
                     currentYear: $selectedYear
                 )
+                .environmentObject(dataManager)
                 
                 VStack(spacing: 20) {
                     // Budget Overview
@@ -176,38 +178,7 @@ struct StatisticsView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
-        .gesture(
-            DragGesture(minimumDistance: 30, coordinateSpace: .local)
-                .onEnded { value in
-                    let threshold: CGFloat = 50
-                    // 只有当水平滑动距离大于垂直滑动距离时才处理水平手势
-                    if abs(value.translation.width) > abs(value.translation.height) && abs(value.translation.width) > threshold {
-                        if value.translation.width > threshold {
-                            // 右滑 - 前一个月
-                            let (prevYear, prevMonth) = previousMonth(year: selectedYear, month: selectedMonth)
-                            if canSwitchToMonth(year: prevYear, month: prevMonth) {
-                                withAnimation(.spring()) {
-                                    selectedYear = prevYear
-                                    selectedMonth = prevMonth
-                                }
-                            } else {
-                                showBoundaryAlert("已经是最早的数据月份了")
-                            }
-                        } else if value.translation.width < -threshold {
-                            // 左滑 - 下一个月
-                            let (nextYear, nextMonth) = nextMonth(year: selectedYear, month: selectedMonth)
-                            if canSwitchToMonth(year: nextYear, month: nextMonth) {
-                                withAnimation(.spring()) {
-                                    selectedYear = nextYear
-                                    selectedMonth = nextMonth
-                                }
-                            } else {
-                                showBoundaryAlert("已经是最新的数据月份了")
-                            }
-                        }
-                    }
-                }
-        )
+        .ignoresSafeArea(.container, edges: .top)
         .overlay(
             // 边界消息提示
             VStack {
@@ -272,7 +243,7 @@ struct StatisticsHeaderView: View {
                 endPoint: .bottomTrailing
             )
             
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 Text("支出统计")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
@@ -281,9 +252,10 @@ struct StatisticsHeaderView: View {
                     .font(.system(size: 18, weight: .medium))
                     .foregroundColor(.white.opacity(0.9))
             }
-            .padding(.top, 50)
-            .padding(.bottom, 30)
+            .padding(.top, 100)
+            .padding(.bottom, 40)
         }
+        .frame(height: 220)
         .clipShape(
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,
