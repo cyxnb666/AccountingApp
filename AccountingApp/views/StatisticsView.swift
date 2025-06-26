@@ -801,8 +801,6 @@ enum ChartType: String, CaseIterable {
 struct TrendChartView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var animatePie = false
-    @State private var selectedSlice: PieSliceData? = nil
-    @State private var showingCategoryDetail = false
     @State private var selectedChartType: ChartType = .pie
     let selectedMonth: Int
     let selectedYear: Int
@@ -900,11 +898,7 @@ struct TrendChartView: View {
                             ZStack {
                                 PieChart(
                                     data: pieData, 
-                                    animate: animatePie,
-                                    onSliceTap: { slice in
-                                        selectedSlice = slice
-                                        showingCategoryDetail = true
-                                    }
+                                    animate: animatePie
                                 )
                                 .frame(width: 160, height: 160)
                                 
@@ -960,18 +954,6 @@ struct TrendChartView: View {
                 .shadow(color: .black.opacity(0.05), radius: 15, x: 0, y: 8)
         )
         .padding(.horizontal, 20)
-        .sheet(isPresented: $showingCategoryDetail) {
-            if let slice = selectedSlice {
-                CategoryDetailView(
-                    category: slice.category,
-                    selectedMonth: selectedMonth,
-                    selectedYear: selectedYear
-                )
-                .environmentObject(dataManager)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-            }
-        }
         .onAppear {
             withAnimation(.easeInOut(duration: 1.5).delay(0.3)) {
                 animatePie = true
@@ -1020,7 +1002,6 @@ struct PieSliceData {
 struct PieChart: View {
     let data: [PieSliceData]
     let animate: Bool
-    let onSliceTap: ((PieSliceData) -> Void)?
     
     var body: some View {
         ZStack {
@@ -1031,9 +1012,6 @@ struct PieChart: View {
                     color: slice.color,
                     animate: animate
                 )
-                .onTapGesture {
-                    onSliceTap?(slice)
-                }
             }
         }
     }
@@ -1080,175 +1058,6 @@ struct PieSlice: View {
     }
 }
 
-// Category Detail View
-struct CategoryDetailView: View {
-    @EnvironmentObject var dataManager: ExpenseDataManager
-    let category: String
-    let selectedMonth: Int
-    let selectedYear: Int
-    @Environment(\.dismiss) private var dismiss
-    
-    private var categoryExpenses: [Expense] {
-        let calendar = Calendar.current
-        let startOfMonth = calendar.date(from: DateComponents(year: selectedYear, month: selectedMonth, day: 1))!
-        let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth)!
-        
-        return dataManager.expenses.filter { expense in
-            expense.date >= startOfMonth && 
-            expense.date <= endOfMonth && 
-            expense.categoryName == category
-        }.sorted { $0.date > $1.date }
-    }
-    
-    private var categoryTotal: Double {
-        categoryExpenses.reduce(0) { $0 + $1.amount }
-    }
-    
-    private var categoryIcon: String {
-        categoryExpenses.first?.categoryIcon ?? "shippingbox"
-    }
-    
-    private func getCategoryId(from name: String) -> String {
-        switch name {
-        case "餐饮": return "food"
-        case "交通": return "transport"
-        case "娱乐": return "entertainment"
-        case "购物": return "shopping"
-        case "医疗": return "medical"
-        case "人情": return "gift"
-        case "缴费": return "bills"
-        default: return "other"
-        }
-    }
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 16) {
-                    HStack {
-                        Image(systemName: categoryIcon)
-                            .font(.system(size: 32, weight: .medium))
-                            .foregroundColor(Color.categoryColor(for: getCategoryId(from: category)))
-                            .frame(width: 60, height: 60)
-                            .background(
-                                Circle()
-                                    .fill(Color.categoryColor(for: getCategoryId(from: category)).opacity(0.1))
-                            )
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(category)
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(.primary)
-                            
-                            Text("\(selectedYear)年\(selectedMonth)月")
-                                .font(.system(size: 16))
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                    }
-                    
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("总支出")
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
-                            Text("¥\(Int(categoryTotal))")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(Color.categoryColor(for: getCategoryId(from: category)))
-                        }
-                        
-                        Spacer()
-                        
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text("记录数")
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
-                            Text("\(categoryExpenses.count)")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.primary)
-                        }
-                    }
-                }
-                .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
-                )
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                
-                // Expense List
-                if categoryExpenses.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray.opacity(0.6))
-                        
-                        Text("暂无\(category)支出记录")
-                            .font(.system(size: 16))
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(categoryExpenses) { expense in
-                                CategoryExpenseRow(expense: expense)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                    }
-                }
-                
-                Spacer()
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") {
-                        dismiss()
-                    }
-                    .font(.system(size: 16, weight: .medium))
-                }
-            }
-        }
-    }
-}
-
-// Category Expense Row
-struct CategoryExpenseRow: View {
-    let expense: Expense
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(expense.description)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.primary)
-                
-                Text(expense.date.formatted(style: .medium))
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Text("¥\(Int(expense.amount))")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.primary)
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-        )
-    }
-}
 
 // Trend Comparison View
 struct TrendComparisonView: View {
