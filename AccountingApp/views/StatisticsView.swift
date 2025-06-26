@@ -24,12 +24,15 @@ struct StatisticsView: View {
         let daysInMonth = calendar.range(of: .day, in: .month, for: startOfMonth)?.count ?? 30
         let dailyAverage = recordCount > 0 ? totalExpense / Double(daysInMonth) : 0
         let averagePerRecord = recordCount > 0 ? totalExpense / Double(recordCount) : 0
+        let budgetUsed = dataManager.monthlyBudget > 0 ? (totalExpense / dataManager.monthlyBudget) * 100 : 0
         
         return MonthlyStats(
             totalExpense: totalExpense,
             dailyAverage: dailyAverage,
             recordCount: recordCount,
-            averagePerRecord: averagePerRecord
+            averagePerRecord: averagePerRecord,
+            budget: dataManager.monthlyBudget,
+            budgetUsed: budgetUsed
         )
     }
     
@@ -140,6 +143,14 @@ struct StatisticsView: View {
                 )
                 
                 VStack(spacing: 20) {
+                    // Budget Overview
+                    if monthlyStats.budget > 0 {
+                        BudgetOverviewView(
+                            stats: monthlyStats,
+                            animate: animateCards
+                        )
+                    }
+                    
                     // Monthly Summary
                     MonthlySummaryView(
                         stats: monthlyStats, 
@@ -285,6 +296,85 @@ struct StatisticsHeaderView: View {
     }
 }
 
+struct BudgetOverviewView: View {
+    let stats: MonthlyStats
+    let animate: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack {
+                Text("预算概览")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("¥\(Int(stats.budget - stats.totalExpense))")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(stats.totalExpense > stats.budget ? .red : .green)
+            }
+            
+            VStack(spacing: 12) {
+                HStack {
+                    Text("已用")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text("¥\(Int(stats.totalExpense))")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
+                }
+                
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(.systemGray5))
+                            .frame(height: 12)
+                        
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(
+                                LinearGradient(
+                                    colors: stats.totalExpense > stats.budget ? 
+                                        [.red, .orange] : [.blue, .green],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(
+                                width: animate ? 
+                                    min(geometry.size.width * CGFloat(stats.budgetUsed / 100), geometry.size.width) : 0,
+                                height: 12
+                            )
+                            .animation(.easeInOut(duration: 1.0), value: animate)
+                    }
+                }
+                .frame(height: 12)
+                
+                HStack {
+                    Text("预算 ¥\(Int(stats.budget))")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text("\(Int(stats.budgetUsed))%")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(stats.totalExpense > stats.budget ? .red : .blue)
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.05), radius: 15, x: 0, y: 8)
+        )
+        .padding(.horizontal, 20)
+    }
+}
+
 struct MonthlySummaryView: View {
     let stats: MonthlyStats
     let animate: Bool
@@ -297,10 +387,12 @@ struct MonthlySummaryView: View {
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.primary)
             
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 15) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 15) {
                 StatCard(
                     title: "月度支出",
-                    value: "¥\(Int(stats.totalExpense))",
+                    value: stats.totalExpense >= 10000 ? 
+                        String(format: "¥%.1fw", stats.totalExpense / 10000) :
+                        "¥\(Int(stats.totalExpense))",
                     color: Color.blue,
                     animate: animate
                 )
@@ -355,10 +447,12 @@ struct StatCard: View {
                 .multilineTextAlignment(.center)
             
             Text(value)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(color)
                 .scaleEffect(animate ? 1.0 : 0.5)
                 .opacity(animate ? 1.0 : 0.0)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
@@ -609,6 +703,8 @@ struct MonthlyStats {
     let dailyAverage: Double
     let recordCount: Int
     let averagePerRecord: Double
+    let budget: Double
+    let budgetUsed: Double
 }
 
 struct CategoryStat {

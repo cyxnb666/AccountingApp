@@ -34,14 +34,17 @@ class ExpenseDataManager: ObservableObject {
         ExpenseCategory(id: "bills", name: "缴费", icon: "lightbulb"),
         ExpenseCategory(id: "other", name: "其他", icon: "shippingbox")
     ]
+    @Published var monthlyBudget: Double = 5000.0
     
     private let userDefaults = UserDefaults.standard
     private let expensesKey = "SavedExpenses"
     private let categoriesKey = "SavedCategories"
+    private let budgetKey = "MonthlyBudget"
     
     init() {
         loadExpenses()
         loadCategories()
+        loadBudget()
     }
     
     func addExpense(_ expense: Expense) {
@@ -76,6 +79,11 @@ class ExpenseDataManager: ObservableObject {
         }
     }
     
+    func updateBudget(_ budget: Double) {
+        monthlyBudget = budget
+        saveBudget()
+    }
+    
     private func saveExpenses() {
         if let encoded = try? JSONEncoder().encode(expenses) {
             userDefaults.set(encoded, forKey: expensesKey)
@@ -99,6 +107,17 @@ class ExpenseDataManager: ObservableObject {
         if let data = userDefaults.data(forKey: categoriesKey),
            let decoded = try? JSONDecoder().decode([ExpenseCategory].self, from: data) {
             categories = decoded
+        }
+    }
+    
+    private func saveBudget() {
+        userDefaults.set(monthlyBudget, forKey: budgetKey)
+    }
+    
+    private func loadBudget() {
+        monthlyBudget = userDefaults.double(forKey: budgetKey)
+        if monthlyBudget == 0 {
+            monthlyBudget = 5000.0 // 默认预算
         }
     }
     

@@ -140,6 +140,7 @@ struct MonthlyRecordsView: View {
                         monthlyTotal: monthlyTotal,
                         isCollapsed: isHeaderCollapsed
                     )
+                    .environmentObject(dataManager)
                     
                     // Month Selector (now sticky)
                     MonthSelectorView(
@@ -483,6 +484,7 @@ struct DayRecord {
 
 // Dynamic Header with smooth animations
 struct DynamicMonthlyHeaderView: View {
+    @EnvironmentObject var dataManager: ExpenseDataManager
     let currentMonth: Int
     let currentYear: Int
     let monthlyTotal: Int
@@ -522,17 +524,32 @@ struct DynamicMonthlyHeaderView: View {
                                 .foregroundColor(.white.opacity(0.8))
                         }
                         
-                        Rectangle()
-                            .fill(.white.opacity(0.3))
-                            .frame(width: 1, height: 40)
-                        
-                        VStack(spacing: 4) {
-                            Text("\(Int(Double(monthlyTotal) / 30))")
-                                .font(.system(size: 24, weight: .bold, design: .rounded))
-                                .foregroundColor(.white)
-                            Text("日均支出")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white.opacity(0.8))
+                        if dataManager.monthlyBudget > 0 {
+                            Rectangle()
+                                .fill(.white.opacity(0.3))
+                                .frame(width: 1, height: 40)
+                            
+                            VStack(spacing: 4) {
+                                Text("¥\(Int(dataManager.monthlyBudget - Double(monthlyTotal)))")
+                                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                                    .foregroundColor(Double(monthlyTotal) > dataManager.monthlyBudget ? .red : .white)
+                                Text("预算余额")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
+                        } else {
+                            Rectangle()
+                                .fill(.white.opacity(0.3))
+                                .frame(width: 1, height: 40)
+                            
+                            VStack(spacing: 4) {
+                                Text("\(Int(Double(monthlyTotal) / 30))")
+                                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+                                Text("日均支出")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
                         }
                     }
                     .transition(.opacity.combined(with: .scale))

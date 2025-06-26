@@ -4,10 +4,10 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
-    @State private var monthlyBudget = 5000.0
     @State private var showingBudgetAlert = false
     @State private var showingExportAlert = false
     @State private var showingClearDataAlert = false
+    @State private var tempBudget = ""
     
     var body: some View {
         ScrollView {
@@ -18,7 +18,7 @@ struct SettingsView: View {
                 VStack(spacing: 20) {
                     // Budget Settings
                     BudgetSettingsSection(
-                        monthlyBudget: $monthlyBudget,
+                        monthlyBudget: dataManager.monthlyBudget,
                         showingAlert: $showingBudgetAlert
                     )
                     
@@ -41,12 +41,19 @@ struct SettingsView: View {
         }
         .background(Color(.systemGroupedBackground))
         .alert("设置预算", isPresented: $showingBudgetAlert) {
-            TextField("输入预算金额", value: $monthlyBudget, format: .number)
+            TextField("输入预算金额", text: $tempBudget)
                 .keyboardType(.numberPad)
-            Button("确定") { }
+            Button("确定") {
+                if let budget = Double(tempBudget), budget > 0 {
+                    dataManager.updateBudget(budget)
+                }
+            }
             Button("取消", role: .cancel) { }
         } message: {
             Text("设置您的月度预算目标")
+        }
+        .onAppear {
+            tempBudget = String(Int(dataManager.monthlyBudget))
         }
         .alert("导出成功", isPresented: $showingExportAlert) {
             Button("确定", role: .cancel) { }
@@ -101,7 +108,7 @@ struct SettingsHeaderView: View {
 }
 
 struct BudgetSettingsSection: View {
-    @Binding var monthlyBudget: Double
+    let monthlyBudget: Double
     @Binding var showingAlert: Bool
     
     var body: some View {
@@ -116,10 +123,10 @@ struct BudgetSettingsSection: View {
             }
             
             SettingsRow(
-                icon: "chart.pie.fill",
+                icon: "bell.fill",
                 iconColor: .orange,
                 title: "预算提醒",
-                value: monthlyBudget > 4000 ? "已开启" : "已关闭",
+                value: monthlyBudget > 0 ? "已开启" : "已关闭",
                 showChevron: false
             ) { }
         }
