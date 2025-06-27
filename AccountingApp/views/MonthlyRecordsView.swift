@@ -16,6 +16,9 @@ struct MonthlyRecordsView: View {
     @State private var searchText = ""
     @State private var selectedCategoryFilter = "all"
     @State private var showingFilterOptions = false
+    @State private var dragOffset: CGFloat = 0
+    @State private var isDragging = false
+    @State private var swipeProgress: CGFloat = 0
     
     private var monthlyData: [DayRecord] {
         // 缓存机制：只有当月份、年份、数据、搜索条件或筛选条件变化时才重新计算
@@ -297,6 +300,9 @@ struct MonthSelectorView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
     @State private var boundaryMessage: String = ""
     @State private var showBoundaryMessage = false
+    @State private var dragOffset: CGFloat = 0
+    @State private var isDragging = false
+    @State private var swipeProgress: CGFloat = 0
     
     // 获取数据的最早月份
     private var earliestDataMonth: (year: Int, month: Int)? {
@@ -365,144 +371,203 @@ struct MonthSelectorView: View {
     }
     
     var body: some View {
-        HStack {
-            Button(action: previousMonth) {
-                HStack(spacing: 4) {
+        VStack(spacing: 0) {
+            // 主内容区域
+            HStack {
+                // 左侧导航按钮
+                Button(action: previousMonth) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 12, weight: .medium))
-                        .opacity(0.6)
-                }
-                .foregroundColor(.primary)
-                .frame(width: 44, height: 44)
-                .background(
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                        
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.3), .clear],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                    }
-                )
-                .overlay(
-                    Circle()
-                        .stroke(
-                            Color.brandPrimary.opacity(0.15),
-                            lineWidth: 1
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.brandPrimary)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(Color.brandPrimary.opacity(0.1))
                         )
-                )
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-            }
-            
-            Spacer()
-            
-            VStack(spacing: 2) {
-                Text("\(currentYear)年\(currentMonth)月")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.primary)
-                    .animation(.spring(), value: currentMonth)
-                    .animation(.spring(), value: currentYear)
-                
-                Text("← 滑动切换 →")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.secondary.opacity(0.7))
-            }
-            
-            Spacer()
-            
-            Button(action: nextMonth) {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .medium))
-                        .opacity(0.6)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 16, weight: .semibold))
+                        .scaleEffect(isDragging && dragOffset > 0 ? 1.1 : 1.0)
                 }
-                .foregroundColor(.primary)
-                .frame(width: 44, height: 44)
-                .background(
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                        
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.3), .clear],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                    }
-                )
-                .overlay(
-                    Circle()
-                        .stroke(
-                            Color.brandPrimary.opacity(0.15),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .background(
-            ZStack {
-                // 主背景
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
+                .disabled(isDragging)
                 
-                // 渐变叠加
-                RoundedRectangle(cornerRadius: 16)
+                Spacer()
+                
+                // 中心显示区域
+                VStack(spacing: 4) {
+                    // 年份
+                    Text("\(currentYear)")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .animation(.spring(response: 0.5), value: currentYear)
+                    
+                    // 月份 - 大号显示
+                    Text("\(currentMonth)月")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .animation(.spring(response: 0.5), value: currentMonth)
+                    
+                    // 滑动提示
+                    if !isDragging {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color.brandPrimary.opacity(0.3))
+                                .frame(width: 4, height: 4)
+                            Circle()
+                                .fill(Color.brandPrimary.opacity(0.6))
+                                .frame(width: 4, height: 4)
+                            Circle()
+                                .fill(Color.brandPrimary.opacity(0.3))
+                                .frame(width: 4, height: 4)
+                        }
+                        .padding(.top, 2)
+                        .transition(.opacity.combined(with: .scale))
+                    }
+                }
+                
+                Spacer()
+                
+                // 右侧导航按钮
+                Button(action: nextMonth) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.brandPrimary)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(Color.brandPrimary.opacity(0.1))
+                        )
+                        .scaleEffect(isDragging && dragOffset < 0 ? 1.1 : 1.0)
+                }
+                .disabled(isDragging)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
+            
+            // 底部进度条
+            HStack {
+                Rectangle()
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.15, green: 0.5, blue: 0.6).opacity(0.05),
-                                Color(red: 0.1, green: 0.4, blue: 0.5).opacity(0.03)
+                                Color.brandPrimary.opacity(swipeProgress > 0 ? 0.8 : 0.2),
+                                Color.brandPrimary.opacity(0.4)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: 3)
+                    .scaleEffect(x: swipeProgress > 0 ? 1.0 : 0.3, anchor: .leading)
+                
+                Spacer()
+                
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.brandPrimary.opacity(0.4),
+                                Color.brandPrimary.opacity(swipeProgress < 0 ? 0.8 : 0.2)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: 3)
+                    .scaleEffect(x: swipeProgress < 0 ? 1.0 : 0.3, anchor: .trailing)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 8)
+        }
+        .background(
+            ZStack {
+                // 主背景
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.regularMaterial)
+                
+                // 动态渐变背景
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.brandPrimary.opacity(0.08),
+                                Color.brandSecondary.opacity(0.04),
+                                Color.clear
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                 
-                // 顶部高光
-                RoundedRectangle(cornerRadius: 16)
+                // 顶部光泽
+                RoundedRectangle(cornerRadius: 20)
                     .fill(
                         LinearGradient(
-                            colors: [.white.opacity(0.2), .clear],
+                            colors: [
+                                .white.opacity(0.1),
+                                .clear
+                            ],
                             startPoint: .top,
-                            endPoint: UnitPoint(x: 0.5, y: 0.3)
+                            endPoint: .center
                         )
                     )
             }
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 20)
                 .stroke(
                     LinearGradient(
-                        colors: [Color.brandPrimary.opacity(0.2), Color.brandSecondary.opacity(0.1)],
+                        colors: [
+                            Color.brandPrimary.opacity(0.3),
+                            Color.brandPrimary.opacity(0.1)
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 1
+                    lineWidth: 0.5
                 )
         )
-        .shadow(color: .black.opacity(0.12), radius: 12, x: 0, y: 6)
-        .shadow(color: Color.brandPrimary.opacity(0.06), radius: 20, x: 0, y: 8)
+        .shadow(
+            color: Color.brandPrimary.opacity(0.15),
+            radius: 20,
+            x: 0,
+            y: 8
+        )
+        .shadow(
+            color: .black.opacity(0.1),
+            radius: 10,
+            x: 0,
+            y: 4
+        )
+        .offset(x: dragOffset)
+        .scaleEffect(1 + abs(swipeProgress) * 0.02)
+        .rotation3DEffect(
+            .degrees(swipeProgress * 5),
+            axis: (x: 0, y: 1, z: 0),
+            perspective: 0.5
+        )
         .gesture(
-            DragGesture(minimumDistance: 20, coordinateSpace: .local)
+            DragGesture(minimumDistance: 5, coordinateSpace: .local)
+                .onChanged { value in
+                    let horizontalDistance = abs(value.translation.width)
+                    let verticalDistance = abs(value.translation.height)
+                    
+                    // 只处理主要是水平方向的滑动
+                    if horizontalDistance > verticalDistance * 1.5 {
+                        withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.8)) {
+                            isDragging = true
+                            dragOffset = value.translation.width * 0.3
+                            swipeProgress = min(max(value.translation.width / 150, -1), 1)
+                        }
+                    }
+                }
                 .onEnded { value in
                     let threshold: CGFloat = 80
                     let horizontalDistance = abs(value.translation.width)
                     let verticalDistance = abs(value.translation.height)
+                    
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0.3)) {
+                        isDragging = false
+                        dragOffset = 0
+                        swipeProgress = 0
+                    }
                     
                     // 只有当水平滑动距离明显大于垂直滑动距离时才处理
                     if horizontalDistance > threshold && horizontalDistance > verticalDistance * 2 {
@@ -513,7 +578,7 @@ struct MonthSelectorView: View {
                             // 右滑 - 前一个月
                             let (prevYear, prevMonth) = previousMonthData(year: currentYear, month: currentMonth)
                             if canSwitchToMonth(year: prevYear, month: prevMonth) {
-                                withAnimation(.spring()) {
+                                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                     currentYear = prevYear
                                     currentMonth = prevMonth
                                 }
@@ -524,7 +589,7 @@ struct MonthSelectorView: View {
                             // 左滑 - 下一个月
                             let (nextYear, nextMonth) = nextMonthData(year: currentYear, month: currentMonth)
                             if canSwitchToMonth(year: nextYear, month: nextMonth) {
-                                withAnimation(.spring()) {
+                                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                     currentYear = nextYear
                                     currentMonth = nextMonth
                                 }
@@ -550,6 +615,66 @@ struct MonthSelectorView: View {
                         .transition(.opacity.combined(with: .scale))
                         .offset(y: -60)
                 }
+            }
+        )
+        .overlay(
+            // 滑动指示器 - 更现代的设计
+            VStack {
+                Spacer()
+                
+                HStack {
+                    // 左侧指示器
+                    if swipeProgress > 0.15 {
+                        VStack(spacing: 2) {
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                            Text("上个月")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.brandPrimary.opacity(0.9))
+                        )
+                        .opacity(min(swipeProgress * 1.5, 1.0))
+                        .scaleEffect(0.9 + min(swipeProgress * 0.1, 0.1))
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .scale.combined(with: .opacity)
+                        ))
+                    }
+                    
+                    Spacer()
+                    
+                    // 右侧指示器
+                    if swipeProgress < -0.15 {
+                        VStack(spacing: 2) {
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                            Text("下个月")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.brandPrimary.opacity(0.9))
+                        )
+                        .opacity(min(abs(swipeProgress) * 1.5, 1.0))
+                        .scaleEffect(0.9 + min(abs(swipeProgress) * 0.1, 0.1))
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .scale.combined(with: .opacity)
+                        ))
+                    }
+                }
+                .padding(.horizontal, 32)
+                .padding(.bottom, 10)
             }
         )
     }
