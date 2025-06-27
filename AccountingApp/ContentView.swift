@@ -1,5 +1,6 @@
 // ContentView.swift
 import SwiftUI
+import UserNotifications
 
 struct ContentView: View {
     @EnvironmentObject var dataManager: ExpenseDataManager
@@ -43,6 +44,17 @@ struct ContentView: View {
         .onAppear {
             // 隐藏系统TabBar
             UITabBar.appearance().isHidden = true
+            
+            // 清除应用图标角标
+            Task {
+                await clearApplicationBadge()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // 当应用从后台返回前台时也清除角标
+            Task {
+                await clearApplicationBadge()
+            }
         }
     }
 }
@@ -199,4 +211,22 @@ extension Color {
     
     static let adaptiveSeparator = Color(.separator)
     static let adaptiveOpaqueSeparator = Color(.opaqueSeparator)
+}
+
+// MARK: - 角标管理函数
+@MainActor
+func clearApplicationBadge() async {
+    let center = UNUserNotificationCenter.current()
+    
+    // 清除所有通知
+    center.removeAllPendingNotificationRequests()
+    center.removeAllDeliveredNotifications()
+    
+    // 使用现代的API设置角标为0
+    do {
+        try await center.setBadgeCount(0)
+    } catch {
+        // 如果新API失败，使用旧API作为备选
+        UIApplication.shared.applicationIconBadgeNumber = 0
+    }
 }

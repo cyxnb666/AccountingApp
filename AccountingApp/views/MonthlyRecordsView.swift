@@ -195,7 +195,7 @@ struct MonthlyRecordsView: View {
                         showingFilterOptions: $showingFilterOptions,
                         dataManager: dataManager
                     )
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 16)
                     
                     // Trend Charts Section
                     TrendChartsSection(
@@ -204,6 +204,7 @@ struct MonthlyRecordsView: View {
                         dataManager: dataManager
                     )
                     .padding(.horizontal, 4)
+                    
                     
                     // Records List
                     LazyVStack(spacing: 12) {
@@ -376,9 +377,28 @@ struct MonthSelectorView: View {
                 .foregroundColor(.primary)
                 .frame(width: 44, height: 44)
                 .background(
-                    Circle()
-                        .fill(.ultraThinMaterial)
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                        
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.3), .clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
                 )
+                .overlay(
+                    Circle()
+                        .stroke(
+                            Color.brandPrimary.opacity(0.15),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
             }
             
             Spacer()
@@ -408,15 +428,75 @@ struct MonthSelectorView: View {
                 .foregroundColor(.primary)
                 .frame(width: 44, height: 44)
                 .background(
-                    Circle()
-                        .fill(.ultraThinMaterial)
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                        
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.3), .clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
                 )
+                .overlay(
+                    Circle()
+                        .stroke(
+                            Color.brandPrimary.opacity(0.15),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
             }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 15)
-        .background(.ultraThinMaterial)
-        .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .padding(.vertical, 18)
+        .background(
+            ZStack {
+                // 主背景
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                
+                // 渐变叠加
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.15, green: 0.5, blue: 0.6).opacity(0.05),
+                                Color(red: 0.1, green: 0.4, blue: 0.5).opacity(0.03)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // 顶部高光
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.2), .clear],
+                            startPoint: .top,
+                            endPoint: UnitPoint(x: 0.5, y: 0.3)
+                        )
+                    )
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.brandPrimary.opacity(0.2), Color.brandSecondary.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: .black.opacity(0.12), radius: 12, x: 0, y: 6)
+        .shadow(color: Color.brandPrimary.opacity(0.06), radius: 20, x: 0, y: 8)
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .local)
                 .onEnded { value in
@@ -844,11 +924,27 @@ struct SearchAndFilterSection: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.adaptiveSecondaryBackground)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.adaptiveSecondaryBackground)
+                    
+                    // 内阴影效果
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.brandPrimary.opacity(0.08), .clear],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                        .blur(radius: 0.5)
+                }
             )
+            .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+            .padding(.horizontal, 16)
             
             // Filter Categories (Horizontal Scroll)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -869,8 +965,40 @@ struct SearchAndFilterSection: View {
                 .padding(.horizontal, 20)
             }
         }
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        .padding(.vertical, 16)
+        .background(
+            ZStack {
+                // 主背景卡片
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                
+                // 渐变叠加
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.15, green: 0.5, blue: 0.6).opacity(0.03),
+                                Color(red: 0.1, green: 0.4, blue: 0.5).opacity(0.02)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.brandPrimary.opacity(0.1), Color.brandSecondary.opacity(0.05)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 4)
+        .shadow(color: Color.brandPrimary.opacity(0.04), radius: 15, x: 0, y: 6)
     }
 }
 
@@ -895,19 +1023,39 @@ struct FilterCategoryButton: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(
-                        isSelected ? 
-                            Color.categoryColor(for: categoryId) :
-                            Color.categoryColor(for: categoryId).opacity(0.1)
-                    )
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(
+                            isSelected ? 
+                                Color.categoryColor(for: categoryId) :
+                                Color.categoryColor(for: categoryId).opacity(0.1)
+                        )
+                    
+                    // 添加内阴影效果
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.3), .clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
+                }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(
                         Color.categoryColor(for: categoryId).opacity(isSelected ? 1.0 : 0.3),
-                        lineWidth: 1
+                        lineWidth: isSelected ? 1.5 : 1
                     )
+            )
+            .shadow(
+                color: isSelected ? Color.categoryColor(for: categoryId).opacity(0.3) : .clear,
+                radius: isSelected ? 8 : 0,
+                x: 0,
+                y: isSelected ? 4 : 0
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -1149,3 +1297,4 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
         value = nextValue()
     }
 }
+

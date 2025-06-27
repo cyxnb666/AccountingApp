@@ -145,7 +145,7 @@ struct CategoryManagementSection: View {
         SettingsSection(title: "分类管理") {
             SettingsRow(
                 icon: "folder.fill",
-                iconColor: .primary,
+                iconColor: .blue,
                 title: "支出分类",
                 value: "\(dataManager.categories.count)个分类"
             ) {
@@ -255,7 +255,7 @@ struct SettingsRow: View {
                 HStack(spacing: 12) {
                     Image(systemName: icon)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.white)
                         .frame(width: 28, height: 28)
                         .background(
                             RoundedRectangle(cornerRadius: 6)

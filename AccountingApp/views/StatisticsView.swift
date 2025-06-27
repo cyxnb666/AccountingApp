@@ -348,7 +348,7 @@ struct BudgetOverviewView: View {
     let animate: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack {
                 Text("预算概览")
                     .font(.system(size: 20, weight: .bold))
@@ -361,55 +361,57 @@ struct BudgetOverviewView: View {
                     .foregroundColor(stats.totalExpense > stats.budget ? .red : .green)
             }
             
-            VStack(spacing: 12) {
-                HStack {
-                    Text("已用")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
+            HStack(spacing: 20) {
+                // 环形进度条
+                ZStack {
+                    CircularProgressView(
+                        percentage: min(stats.budgetUsed, 100),
+                        animate: animate,
+                        isOverBudget: stats.totalExpense > stats.budget
+                    )
+                    .frame(width: 120, height: 120)
                     
-                    Spacer()
-                    
-                    Text("¥\(Int(stats.totalExpense))")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.primary)
-                }
-                
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(.systemGray5))
-                            .frame(height: 12)
+                    VStack(spacing: 4) {
+                        Text("\(Int(min(stats.budgetUsed, 100)))%")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(stats.totalExpense > stats.budget ? .red : .blue)
                         
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(
-                                LinearGradient(
-                                    colors: stats.totalExpense > stats.budget ? 
-                                        [.red, .orange] : [.blue, .green],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(
-                                width: animate ? 
-                                    min(geometry.size.width * CGFloat(stats.budgetUsed / 100), geometry.size.width) : 0,
-                                height: 12
-                            )
-                            .animation(.easeInOut(duration: 1.0), value: animate)
+                        Text("已使用")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
                     }
                 }
-                .frame(height: 12)
                 
-                HStack {
-                    Text("预算 ¥\(Int(stats.budget))")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
+                // 详细信息
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("已用金额")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                        Text("¥\(Int(stats.totalExpense))")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
                     
-                    Spacer()
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("预算金额")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                        Text("¥\(Int(stats.budget))")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
                     
-                    Text("\(Int(stats.budgetUsed))%")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(stats.totalExpense > stats.budget ? .red : .blue)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("剩余金额")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                        Text("¥\(Int(max(0, stats.budget - stats.totalExpense)))")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(stats.totalExpense > stats.budget ? .red : .green)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(20)
@@ -893,48 +895,72 @@ struct TrendChartView: View {
                 Group {
                     switch selectedChartType {
                     case .pie:
-                        HStack(spacing: 20) {
-                            // Pie Chart
-                            ZStack {
-                                PieChart(
-                                    data: pieData, 
-                                    animate: animatePie
-                                )
-                                .frame(width: 160, height: 160)
-                                
-                                VStack(spacing: 2) {
-                                    Text("总支出")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                    Text("¥\(pieData.reduce(0) { $0 + $1.value })")
-                                        .font(.system(size: 18, weight: .bold))
-                                        .foregroundColor(.primary)
+                        VStack(spacing: 16) {
+                            // Enhanced Pie Chart with percentage labels centered
+                            HStack {
+                                Spacer()
+                                ZStack {
+                                    PieChartWithLabels(
+                                        data: pieData, 
+                                        animate: animatePie
+                                    )
+                                    .frame(width: 160, height: 160)
+                                    
+                                    VStack(spacing: 2) {
+                                        Text("总支出")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary)
+                                        Text("¥\(pieData.reduce(0) { $0 + $1.value })")
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
+                                    }
                                 }
+                                Spacer()
                             }
                             
-                            // Legend
-                            VStack(alignment: .leading, spacing: 12) {
-                                ForEach(pieData.prefix(5), id: \.category) { slice in
+                            // Legend with percentages in a more compact layout
+                            LazyVGrid(columns: [
+                                GridItem(.flexible(), spacing: 8),
+                                GridItem(.flexible(), spacing: 8)
+                            ], spacing: 8) {
+                                ForEach(pieData.prefix(6), id: \.category) { slice in
                                     HStack(spacing: 8) {
                                         Circle()
                                             .fill(slice.color)
-                                            .frame(width: 12, height: 12)
+                                            .frame(width: 10, height: 10)
                                         
-                                        VStack(alignment: .leading, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: 1) {
                                             Text(slice.category)
-                                                .font(.system(size: 14, weight: .medium))
+                                                .font(.system(size: 12, weight: .medium))
                                                 .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.8)
                                             
-                                            Text("¥\(slice.value)")
-                                                .font(.system(size: 12))
-                                                .foregroundColor(.secondary)
+                                            HStack(spacing: 4) {
+                                                Text("¥\(slice.value)")
+                                                    .font(.system(size: 10))
+                                                    .foregroundColor(.secondary)
+                                                
+                                                Text("\(Int(Double(slice.value) / Double(pieData.reduce(0) { $0 + $1.value }) * 100))%")
+                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .foregroundColor(slice.color)
+                                                    .padding(.horizontal, 4)
+                                                    .padding(.vertical, 1)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 4)
+                                                            .fill(slice.color.opacity(0.1))
+                                                    )
+                                            }
                                         }
                                         
-                                        Spacer()
+                                        Spacer(minLength: 0)
                                     }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                             }
-                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 8)
                         }
                         
                     case .bar:
@@ -944,7 +970,7 @@ struct TrendChartView: View {
                         LineChartView(data: pieData)
                     }
                 }
-                .frame(height: 180)
+                .frame(height: 260)
             }
         }
         .padding(20)
@@ -998,7 +1024,66 @@ struct PieSliceData {
     let color: Color
 }
 
-// Pie Chart Component
+// Enhanced Pie Chart Component with Percentage Labels
+struct PieChartWithLabels: View {
+    let data: [PieSliceData]
+    let animate: Bool
+    
+    var body: some View {
+        ZStack {
+            // Pie slices
+            ForEach(Array(data.enumerated()), id: \.offset) { index, slice in
+                PieSlice(
+                    startAngle: startAngle(for: index),
+                    endAngle: endAngle(for: index),
+                    color: slice.color,
+                    animate: animate
+                )
+            }
+            
+            // Percentage labels
+            ForEach(Array(data.enumerated()), id: \.offset) { index, slice in
+                let percentage = Int(Double(slice.value) / Double(totalValue) * 100)
+                if percentage >= 5 { // Only show labels for slices >= 5%
+                    let midAngle = (startAngle(for: index).degrees + endAngle(for: index).degrees) / 2
+                    let labelRadius: CGFloat = 50
+                    let x = cos(midAngle * .pi / 180) * labelRadius
+                    let y = sin(midAngle * .pi / 180) * labelRadius
+                    
+                    Text("\(percentage)%")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.black.opacity(0.7))
+                        )
+                        .offset(x: x, y: y)
+                        .opacity(animate ? 1 : 0)
+                        .scaleEffect(animate ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.8).delay(Double(index) * 0.1), value: animate)
+                }
+            }
+        }
+    }
+    
+    private var totalValue: Int {
+        data.reduce(0) { $0 + $1.value }
+    }
+    
+    private func startAngle(for index: Int) -> Angle {
+        let sum = data.prefix(index).reduce(0) { $0 + $1.value }
+        return Angle(degrees: Double(sum) / Double(totalValue) * 360 - 90)
+    }
+    
+    private func endAngle(for index: Int) -> Angle {
+        let sum = data.prefix(index + 1).reduce(0) { $0 + $1.value }
+        return Angle(degrees: Double(sum) / Double(totalValue) * 360 - 90)
+    }
+}
+
+// Original Pie Chart Component (kept for compatibility)
 struct PieChart: View {
     let data: [PieSliceData]
     let animate: Bool
@@ -1321,6 +1406,62 @@ struct BarChartView: View {
         .onAppear {
             withAnimation {
                 animateBars = true
+            }
+        }
+    }
+}
+
+// 环形进度条组件
+struct CircularProgressView: View {
+    let percentage: Double
+    let animate: Bool
+    let isOverBudget: Bool
+    
+    var body: some View {
+        ZStack {
+            // 背景圆环
+            Circle()
+                .stroke(
+                    Color(.systemGray5),
+                    style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                )
+            
+            // 进度圆环
+            Circle()
+                .trim(from: 0, to: animate ? CGFloat(percentage / 100) : 0)
+                .stroke(
+                    LinearGradient(
+                        colors: isOverBudget ? 
+                            [.red, .orange] : 
+                            [.blue, .green],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .animation(.easeInOut(duration: 1.5), value: animate)
+            
+            // 进度端点高亮
+            if animate {
+                let endAngle = (percentage / 100) * 360 - 90
+                let radius: CGFloat = 48
+                let x = cos(endAngle * .pi / 180) * radius
+                let y = sin(endAngle * .pi / 180) * radius
+                
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: isOverBudget ? [.red, .orange] : [.blue, .green],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 16, height: 16)
+                    .offset(x: x, y: y)
+                    .shadow(color: isOverBudget ? .red.opacity(0.3) : .blue.opacity(0.3), radius: 4)
+                    .scaleEffect(animate ? 1.2 : 0)
+                    .animation(.easeInOut(duration: 0.5).delay(1.0), value: animate)
             }
         }
     }

@@ -1,5 +1,6 @@
 // AccountingApp.swift
 import SwiftUI
+import UserNotifications
 
 @main
 struct AccountingApp: App {
@@ -13,6 +14,11 @@ struct AccountingApp: App {
                     // 锁定竖屏方向
                     if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
                         windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
+                    }
+                    
+                    // 清除应用图标角标
+                    Task {
+                        await clearApplicationBadge()
                     }
                 }
         }
